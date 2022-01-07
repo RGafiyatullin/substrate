@@ -223,7 +223,7 @@ pub trait SubstrateCli: Sized {
 
 	/// Create a runner for the command provided in argument. This will create a Configuration and
 	/// a tokio runtime
-	fn create_runner<T: CliConfiguration>(&self, command: &T) -> error::Result<Runner<Self>> {
+	fn create_runner<T: CliConfiguration>(&self, command: &T) -> error::Result<Runner> {
 		let tokio_runtime = build_runtime()?;
 		let config = command.create_configuration(self, tokio_runtime.handle().clone())?;
 
@@ -254,7 +254,7 @@ pub trait SubstrateCli: Sized {
 		&self,
 		command: &T,
 		logger_hook: F,
-	) -> error::Result<Runner<Self>>
+	) -> error::Result<Runner>
 	where
 		F: FnOnce(&mut LoggerBuilder, &Configuration),
 	{

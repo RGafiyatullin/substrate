@@ -22,7 +22,6 @@ use futures::{future, future::FutureExt, pin_mut, select, Future};
 use log::info;
 use sc_service::{Configuration, Error as ServiceError, TaskManager};
 use sc_utils::metrics::{TOKIO_THREADS_ALIVE, TOKIO_THREADS_TOTAL};
-use std::marker::PhantomData;
 
 #[cfg(target_family = "unix")]
 async fn main<F, E>(func: F) -> std::result::Result<(), E>
@@ -104,16 +103,15 @@ where
 }
 
 /// A Substrate CLI runtime that can be used to run a node or a command
-pub struct Runner<C: SubstrateCli> {
+pub struct Runner {
 	config: Configuration,
 	tokio_runtime: tokio::runtime::Runtime,
-	phantom: PhantomData<C>,
 }
 
-impl<C: SubstrateCli> Runner<C> {
+impl Runner {
 	/// Create a new runtime with the command provided in argument
-	pub fn new(config: Configuration, tokio_runtime: tokio::runtime::Runtime) -> Result<Runner<C>> {
-		Ok(Runner { config, tokio_runtime, phantom: PhantomData })
+	pub fn new(config: Configuration, tokio_runtime: tokio::runtime::Runtime) -> Result<Runner> {
+		Ok(Runner { config, tokio_runtime })
 	}
 
 	/// Log information about the node itself.
@@ -130,21 +128,23 @@ impl<C: SubstrateCli> Runner<C> {
 	/// 2020-06-03 16:14:21 💾 Database: RocksDb at /tmp/c/chains/flamingfir7/db
 	/// 2020-06-03 16:14:21 ⛓  Native runtime: node-251 (substrate-node-1.tx1.au10)
 	/// ```
-	fn print_node_infos(&self) {
+	fn print_node_infos<C: SubstrateCli>(&self) {
 		print_node_infos::<C>(self.config())
 	}
 
 	/// A helper function that runs a node with tokio and stops if the process receives the signal
 	/// `SIGTERM` or `SIGINT`.
-	pub fn run_node_until_exit<F, E>(
+	pub fn run_node_until_exit<C, F, E, I>(
 		self,
-		initialize: impl FnOnce(Configuration) -> F,
+		initialize: I,
 	) -> std::result::Result<(), E>
 	where
+		C: SubstrateCli,
 		F: Future<Output = std::result::Result<TaskManager, E>>,
 		E: std::error::Error + Send + Sync + 'static + From<ServiceError>,
+		I: FnOnce(Configuration) -> F,
 	{
-		self.print_node_infos();
+		self.print_node_infos::<C>();
 		let mut task_manager = self.tokio_runtime.block_on(initialize(self.config))?;
 		let res = self.tokio_runtime.block_on(main(task_manager.future().fuse()));
 		Ok(res?)
