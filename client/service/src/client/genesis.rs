@@ -22,6 +22,7 @@ use sp_runtime::traits::{Block as BlockT, Hash as HashT, Header as HeaderT, Zero
 
 /// Create a genesis block, given the initial storage.
 pub fn construct_genesis_block<Block: BlockT>(state_root: Block::Hash) -> Block {
+	log::warn!("GENESIS::CONSTRUCT_GENESIS_BLOCK");
 	let extrinsics_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
 		Vec::new(),
 		sp_runtime::StateVersion::V0,

@@ -44,6 +44,7 @@ pub const DEFAULT_GROUP_NAME: &'static str = "default";
 ///
 /// This name is passed belong-side the task name to the prometheus metrics and can be used
 /// to group tasks.  
+#[derive(Debug)]
 pub enum GroupName {
 	/// Sets the group name to `default`.
 	Default,
@@ -224,6 +225,8 @@ impl SpawnEssentialTaskHandle {
 		group: impl Into<GroupName>,
 		task: impl Future<Output = ()> + Send + 'static,
 	) {
+		let group = group.into();
+		log::warn!("TM::SPAWN [name: {:?}; group: {:?}]", name, group);
 		self.spawn_inner(name, group, task, TaskType::Async)
 	}
 
@@ -236,6 +239,8 @@ impl SpawnEssentialTaskHandle {
 		group: impl Into<GroupName>,
 		task: impl Future<Output = ()> + Send + 'static,
 	) {
+		let group = group.into();
+		log::warn!("TM::SPAWN_BLOCKING [name: {:?}; group: {:?}]", name, group);
 		self.spawn_inner(name, group, task, TaskType::Blocking)
 	}
 

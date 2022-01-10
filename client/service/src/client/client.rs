@@ -330,7 +330,10 @@ where
 		config: ClientConfig<Block>,
 	) -> sp_blockchain::Result<Self> {
 		let info = backend.blockchain().info();
+
+		log::warn!("SC_SERVICE::CLIENT::NEW BlockChainInfo: {:#?}", info);
 		if info.finalized_state.is_none() {
+			log::warn!("SC_SERVICE::CLIENT::NEW finalized_state.is_none()");
 			let genesis_storage =
 				build_genesis_storage.build_storage().map_err(sp_blockchain::Error::Storage)?;
 			let genesis_state_version =
