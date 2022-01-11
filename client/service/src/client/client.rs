@@ -332,16 +332,29 @@ where
 		let info = backend.blockchain().info();
 
 		log::warn!("SC_SERVICE::CLIENT::NEW BlockChainInfo: {:#?}", info);
+
 		if info.finalized_state.is_none() {
+			
 			log::warn!("SC_SERVICE::CLIENT::NEW finalized_state.is_none()");
+
 			let genesis_storage =
 				build_genesis_storage.build_storage().map_err(sp_blockchain::Error::Storage)?;
 			let genesis_state_version =
 				Self::resolve_state_version_from_wasm(&genesis_storage, &executor)?;
 			let mut op = backend.begin_operation()?;
+			
+			log::warn!("SC_SERVICE::CLIENT::NEW genesis_storage: {:#?}", genesis_storage);
+
 			let state_root =
 				op.set_genesis_state(genesis_storage, !config.no_genesis, genesis_state_version)?;
+			
+			log::warn!("SC_SERVICE::CLIENT::NEW state_root: {:?}", state_root);
+
 			let genesis_block = genesis::construct_genesis_block::<Block>(state_root.into());
+			
+			log::warn!("SC_SERVICE::CLIENT::NEW genesis_block: {:?}", genesis_block);
+			
+
 			info!(
 				"🔨 Initializing Genesis block/state (state: {}, header-hash: {})",
 				genesis_block.header().state_root(),

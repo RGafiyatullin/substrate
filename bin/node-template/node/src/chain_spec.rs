@@ -150,5 +150,6 @@ fn testnet_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
+		playground_module: Default::default(),
 	}
 }

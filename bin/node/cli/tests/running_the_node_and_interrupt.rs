@@ -33,6 +33,7 @@ use tempfile::tempdir;
 
 pub mod common;
 
+#[ignore]
 #[tokio::test]
 async fn running_the_node_works_and_can_be_interrupted() {
 	async fn run_command_and_kill(signal: Signal) {
@@ -60,6 +61,7 @@ async fn running_the_node_works_and_can_be_interrupted() {
 	run_command_and_kill(SIGTERM).await;
 }
 
+#[ignore]
 #[tokio::test]
 async fn running_two_nodes_with_the_same_ws_port_should_work() {
 	fn start_node() -> Child {
