@@ -39,7 +39,7 @@ pub struct PruningParams {
 
 impl PruningParams {
 	/// Get the pruning value from the parameters
-	pub fn state_pruning(&self, unsafe_pruning: bool, role: &Role) -> error::Result<PruningMode> {
+	pub fn state_pruning(&self, /* unsafe_pruning: bool, */ role: &Role) -> error::Result<PruningMode> {
 		// by default we disable pruning if the node is an authority (i.e.
 		// `ArchiveAll`), otherwise we keep state for the last 256 blocks. if the
 		// node is an authority and pruning is enabled explicitly, then we error
@@ -49,7 +49,7 @@ impl PruningParams {
 			None if role.is_authority() => PruningMode::ArchiveAll,
 			None => PruningMode::default(),
 			Some(s) => {
-				if role.is_authority() && !unsafe_pruning {
+				if role.is_authority() /* && !unsafe_pruning */ {
 					return Err(error::Error::Input(
 						"Validators should run with state pruning disabled (i.e. archive). \
 						You can ignore this check with `--unsafe-pruning`."
