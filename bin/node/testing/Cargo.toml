@@ -23,7 +23,7 @@ sc-client-db = { version = "0.10.0-dev", path = "../../../client/db/", features 
 ] }
 sc-client-api = { version = "4.0.0-dev", path = "../../../client/api/" }
 sc-consensus = { version = "0.10.0-dev", path = "../../../client/consensus/common" }
-codec = { package = "parity-scale-codec", version = "2.0.0" }
+codec = { package = "parity-scale-codec", version = "3.0.0" }
 sp-keyring = { version = "5.0.0", path = "../../../primitives/keyring" }
 node-executor = { version = "3.0.0-dev", path = "../executor" }
 node-primitives = { version = "2.0.0", path = "../primitives" }
@@ -48,4 +48,4 @@ sp-blockchain = { version = "4.0.0-dev", path = "../../../primitives/blockchain"
 log = "0.4.8"
 tempfile = "3.1.0"
 fs_extra = "1"
-futures = "0.3.1"
+futures = "0.3.19"
