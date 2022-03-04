@@ -52,7 +52,8 @@ pub struct ImportParams {
 	/// start as a validator if pruning is enabled unless this option is set.
 	#[clap(long)]
 	#[deprecated = "According to https://github.com/paritytech/substrate/issues/8103"]
-	// FIXME: add proepr description
+	// FIXME: add a proper explanation for the deprecation
+	// Look whether the `clap` can reject this flag being set in a declarative manner
 	pub unsafe_pruning: bool,
 
 	/// Method for executing Wasm runtime code.

@@ -49,6 +49,11 @@ impl PruningParams {
 			None if role.is_authority() => PruningMode::ArchiveAll,
 			None => PruningMode::default(),
 			Some(s) => {
+				/*
+				
+				// >> Many people are running validators fine with pruning now. This should be removed.
+				// (https://github.com/paritytech/substrate/issues/8103#issue-806266780)
+
 				if role.is_authority() /* && !unsafe_pruning */ {
 					return Err(error::Error::Input(
 						"Validators should run with state pruning disabled (i.e. archive). \
@@ -56,6 +61,8 @@ impl PruningParams {
 							.to_string(),
 					))
 				}
+				
+				*/
 
 				PruningMode::keep_blocks(s.parse().map_err(|_| {
 					error::Error::Input("Invalid pruning mode specified".to_string())
