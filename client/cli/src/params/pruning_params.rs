@@ -39,31 +39,14 @@ pub struct PruningParams {
 
 impl PruningParams {
 	/// Get the pruning value from the parameters
-	pub fn state_pruning(&self, /* unsafe_pruning: bool, */ role: &Role) -> error::Result<PruningMode> {
+	pub fn state_pruning(&self, role: &Role) -> error::Result<PruningMode> {
 		// by default we disable pruning if the node is an authority (i.e.
-		// `ArchiveAll`), otherwise we keep state for the last 256 blocks. if the
-		// node is an authority and pruning is enabled explicitly, then we error
-		// unless `unsafe_pruning` is set.
+		// `ArchiveAll`), otherwise we keep state for the last 256 blocks.
 		Ok(match &self.pruning {
 			Some(ref s) if s == "archive" => PruningMode::ArchiveAll,
 			None if role.is_authority() => PruningMode::ArchiveAll,
 			None => PruningMode::default(),
 			Some(s) => {
-				/*
-				
-				// >> Many people are running validators fine with pruning now. This should be removed.
-				// (https://github.com/paritytech/substrate/issues/8103#issue-806266780)
-
-				if role.is_authority() /* && !unsafe_pruning */ {
-					return Err(error::Error::Input(
-						"Validators should run with state pruning disabled (i.e. archive). \
-						You can ignore this check with `--unsafe-pruning`."
-							.to_string(),
-					))
-				}
-				
-				*/
-
 				PruningMode::keep_blocks(s.parse().map_err(|_| {
 					error::Error::Input("Invalid pruning mode specified".to_string())
 				})?)

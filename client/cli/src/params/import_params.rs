@@ -50,6 +50,8 @@ pub struct ImportParams {
 	/// When running as a validator it is highly recommended to disable state
 	/// pruning (i.e. 'archive') which is the default. The node will refuse to
 	/// start as a validator if pruning is enabled unless this option is set.
+	/// 
+	/// DEPRECATED 
 	#[clap(long)]
 	#[deprecated = "According to https://github.com/paritytech/substrate/issues/8103"]
 	// FIXME: add a proper explanation for the deprecation
