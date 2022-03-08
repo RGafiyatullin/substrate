@@ -493,11 +493,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		let (keystore_remote, keystore) = self.keystore_config(&config_dir)?;
 		let telemetry_endpoints = self.telemetry_endpoints(&chain_spec)?;
 		let runtime_cache_size = self.runtime_cache_size()?;
-		
-		if self.import_params().map(|p| p.unsafe_pruning).unwrap_or(false) {
-			// TODO: a properly formulated warning should come here
-			log::warn!("!!! substrate/issues/8103");
-		}
 
 		Ok(Configuration {
 			impl_name: C::impl_name(),
@@ -644,6 +639,21 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 					new_limit, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
 				);
 			}
+		}
+
+		if self
+			.import_params()
+			.map(|p| {
+				#[allow(deprecated)]
+				p.unsafe_pruning
+			})
+			.unwrap_or(false)
+		{
+			// according to https://github.com/substrate/issues/8103;
+			warn!(
+				"WARNING: \"--unsafe-pruning\" CLI-flag is deprecated and has no effect. \
+				In future builds it will be removed, and providing this flag will lead to an error."
+			);
 		}
 
 		Ok(())
