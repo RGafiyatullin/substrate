@@ -46,11 +46,10 @@ impl PruningParams {
 			Some(ref s) if s == "archive" => PruningMode::ArchiveAll,
 			None if role.is_authority() => PruningMode::ArchiveAll,
 			None => PruningMode::default(),
-			Some(s) => {
+			Some(s) =>
 				PruningMode::keep_blocks(s.parse().map_err(|_| {
 					error::Error::Input("Invalid pruning mode specified".to_string())
-				})?)
-			},
+				})?),
 		})
 	}
 
