@@ -191,7 +191,7 @@ fn version_file_path(path: &Path) -> PathBuf {
 mod tests {
 	use super::*;
 	use crate::{tests::Block, DatabaseSource};
-	
+
 	fn create_db(db_path: &Path, version: Option<u32>) {
 		if let Some(version) = version {
 			fs::create_dir_all(db_path).unwrap();

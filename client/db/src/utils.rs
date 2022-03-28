@@ -635,7 +635,7 @@ mod tests {
 			let old_db_path = base_path.path().join("chains/dev/db");
 
 			let db_source = DatabaseSource::RocksDb { path: old_db_path.clone(), cache_size: 128 };
-			
+
 			{
 				let db_res = open_database::<Block>(&db_source, DatabaseType::Full);
 				assert!(db_res.is_ok(), "New database should be created.");
@@ -699,7 +699,6 @@ mod tests {
 			rocksdb_path: rocksdb_path.clone(),
 			cache_size: 128,
 		};
-		
 
 		// it should create new auto (paritydb) database
 		{
@@ -715,13 +714,19 @@ mod tests {
 
 		// it should fail to open existing auto (pairtydb) database
 		{
-			let db_res = open_database::<Block>(&DatabaseSource::RocksDb { path: rocksdb_path, cache_size: 128 }, DatabaseType::Full);
+			let db_res = open_database::<Block>(
+				&DatabaseSource::RocksDb { path: rocksdb_path, cache_size: 128 },
+				DatabaseType::Full,
+			);
 			assert!(db_res.is_ok(), "New database should be opened.");
 		}
 
 		// it should reopen existing auto (pairtydb) database
 		{
-			let db_res = open_database::<Block>(&DatabaseSource::ParityDb { path: paritydb_path }, DatabaseType::Full);
+			let db_res = open_database::<Block>(
+				&DatabaseSource::ParityDb { path: paritydb_path },
+				DatabaseType::Full,
+			);
 			assert!(db_res.is_ok(), "Existing parity database should be reopened");
 		}
 	}
@@ -737,29 +742,41 @@ mod tests {
 
 		// it should create new rocksdb database
 		{
-			let db_res = open_database::<Block>(&DatabaseSource::RocksDb { path: rocksdb_path.clone(), cache_size: 128 }, DatabaseType::Full);
+			let db_res = open_database::<Block>(
+				&DatabaseSource::RocksDb { path: rocksdb_path.clone(), cache_size: 128 },
+				DatabaseType::Full,
+			);
 			assert!(db_res.is_ok(), "New rocksdb database should be created");
 		}
 
 		// it should reopen existing auto (rocksdb) database
 		{
-			let db_res = open_database::<Block>(&DatabaseSource::Auto {
-				paritydb_path: paritydb_path.clone(),
-				rocksdb_path: rocksdb_path.clone(),
-				cache_size: 128,
-			}, DatabaseType::Full);
+			let db_res = open_database::<Block>(
+				&DatabaseSource::Auto {
+					paritydb_path: paritydb_path.clone(),
+					rocksdb_path: rocksdb_path.clone(),
+					cache_size: 128,
+				},
+				DatabaseType::Full,
+			);
 			assert!(db_res.is_ok(), "Existing rocksdb database should be reopened");
 		}
 
 		// it should fail to open existing auto (rocksdb) database
 		{
-			let db_res = open_database::<Block>(&DatabaseSource::ParityDb { path: paritydb_path }, DatabaseType::Full);
+			let db_res = open_database::<Block>(
+				&DatabaseSource::ParityDb { path: paritydb_path },
+				DatabaseType::Full,
+			);
 			assert!(db_res.is_ok(), "New paritydb database should be created");
 		}
 
 		// it should reopen existing auto (pairtydb) database
 		{
-			let db_res = open_database::<Block>(&DatabaseSource::RocksDb { path: rocksdb_path, cache_size: 128 }, DatabaseType::Full);
+			let db_res = open_database::<Block>(
+				&DatabaseSource::RocksDb { path: rocksdb_path, cache_size: 128 },
+				DatabaseType::Full,
+			);
 			assert!(db_res.is_ok(), "Existing rocksdb database should be reopened");
 		}
 	}
@@ -774,7 +791,7 @@ mod tests {
 		let rocksdb_path = db_path.join("rocksdb_path");
 
 		let db_source = DatabaseSource::ParityDb { path: paritydb_path.clone() };
-		
+
 		// it should create new paritydb database
 		{
 			let db_res = open_database::<Block>(&db_source, DatabaseType::Full);
@@ -788,13 +805,20 @@ mod tests {
 		}
 
 		// it should fail to open existing pairtydb database
-		{	let db_res = open_database::<Block>(&DatabaseSource::RocksDb { path: rocksdb_path.clone(), cache_size: 128 }, DatabaseType::Full);
+		{
+			let db_res = open_database::<Block>(
+				&DatabaseSource::RocksDb { path: rocksdb_path.clone(), cache_size: 128 },
+				DatabaseType::Full,
+			);
 			assert!(db_res.is_ok(), "New rocksdb database should be created");
 		}
 
 		// it should reopen existing auto (pairtydb) database
 		{
-			let db_res = open_database::<Block>(&DatabaseSource::Auto { paritydb_path, rocksdb_path, cache_size: 128 }, DatabaseType::Full);
+			let db_res = open_database::<Block>(
+				&DatabaseSource::Auto { paritydb_path, rocksdb_path, cache_size: 128 },
+				DatabaseType::Full,
+			);
 			assert!(db_res.is_ok(), "Existing parity database should be reopened");
 		}
 	}
