@@ -387,16 +387,16 @@ impl BenchDb {
 		profile: Profile,
 		keyring: &BenchKeyring,
 	) -> (Client, std::sync::Arc<Backend>, TaskExecutor) {
+		let db_source = database_type.into_settings(dir.into());
 		let db_config = sc_client_db::DatabaseSettings {
 			state_cache_size: 16 * 1024 * 1024,
 			state_cache_child_ratio: Some((0, 100)),
 			state_pruning: PruningMode::ArchiveAll,
-			source: database_type.into_settings(dir.into()),
 			keep_blocks: sc_client_db::KeepBlocks::All,
 		};
 		let task_executor = TaskExecutor::new();
 
-		let backend = sc_service::new_db_backend(db_config).expect("Should not fail");
+		let backend = sc_service::new_db_backend(db_source, db_config).expect("Should not fail");
 		let client = sc_service::new_client(
 			backend.clone(),
 			NativeElseWasmExecutor::new(WasmExecutionMethod::Compiled, None, 8, 2),

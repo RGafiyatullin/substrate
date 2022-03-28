@@ -297,8 +297,6 @@ pub struct DatabaseSettings {
 	pub state_cache_child_ratio: Option<(usize, usize)>,
 	/// State pruning mode.
 	pub state_pruning: PruningMode,
-	/// Where to find the database.
-	pub source: DatabaseSource,
 	/// Block pruning mode.
 	pub keep_blocks: KeepBlocks,
 }
@@ -998,9 +996,9 @@ impl<Block: BlockT> Backend<Block> {
 	/// Create a new instance of database backend.
 	///
 	/// The pruning window is how old a block must be before the state is pruned.
-	pub fn new(config: DatabaseSettings, canonicalization_delay: u64) -> ClientResult<Self> {
-		let db = crate::utils::open_database::<Block>(&config, DatabaseType::Full)?;
-		Self::from_database(db as Arc<_>, canonicalization_delay, &config)
+	pub fn new(db_source: DatabaseSource, db_config: DatabaseSettings, canonicalization_delay: u64) -> ClientResult<Self> {
+		let db = crate::utils::open_database::<Block>(&db_source, &db_config, DatabaseType::Full)?;
+		Self::from_database(db as Arc<_>, canonicalization_delay, &db_config)
 	}
 
 	/// Create new memory-backed client backend for tests.
@@ -1014,15 +1012,15 @@ impl<Block: BlockT> Backend<Block> {
 	pub fn new_test_with_tx_storage(keep_blocks: u32, canonicalization_delay: u64) -> Self {
 		let db = kvdb_memorydb::create(crate::utils::NUM_COLUMNS);
 		let db = sp_database::as_database(db);
+		let db_source = DatabaseSource::Custom(db);
 		let db_setting = DatabaseSettings {
 			state_cache_size: 16777216,
 			state_cache_child_ratio: Some((50, 100)),
 			state_pruning: PruningMode::keep_blocks(keep_blocks),
-			source: DatabaseSource::Custom(db),
 			keep_blocks: KeepBlocks::Some(keep_blocks),
 		};
 
-		Self::new(db_setting, canonicalization_delay).expect("failed to create test-db")
+		Self::new(db_source, db_setting, canonicalization_delay).expect("failed to create test-db")
 	}
 
 	/// Expose the Database that is used by this backend.
@@ -2381,11 +2379,11 @@ pub(crate) mod tests {
 		};
 
 		let backend = Backend::<Block>::new(
+			DatabaseSource::Custom(backing),
 			DatabaseSettings {
 				state_cache_size: 16777216,
 				state_cache_child_ratio: Some((50, 100)),
 				state_pruning: PruningMode::keep_blocks(1),
-				source: DatabaseSource::Custom(backing),
 				keep_blocks: KeepBlocks::All,
 			},
 			0,

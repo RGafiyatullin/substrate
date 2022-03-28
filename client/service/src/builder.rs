@@ -33,7 +33,7 @@ use sc_client_api::{
 	execution_extensions::ExecutionExtensions, proof_provider::ProofProvider, BadBlocks,
 	BlockBackend, BlockchainEvents, ExecutorProvider, ForkBlocks, StorageProvider, UsageProvider,
 };
-use sc_client_db::{Backend, DatabaseSettings};
+use sc_client_db::{Backend, DatabaseSettings, DatabaseSource};
 use sc_consensus::import_queue::ImportQueue;
 use sc_executor::RuntimeVersionOf;
 use sc_keystore::LocalKeystore;
@@ -258,15 +258,15 @@ where
 		.unwrap_or_default();
 
 	let (client, backend) = {
+		let db_source = config.database.clone();
 		let db_config = sc_client_db::DatabaseSettings {
 			state_cache_size: config.state_cache_size,
 			state_cache_child_ratio: config.state_cache_child_ratio.map(|v| (v, 100)),
 			state_pruning: config.state_pruning.clone(),
-			source: config.database.clone(),
 			keep_blocks: config.keep_blocks.clone(),
 		};
 
-		let backend = new_db_backend(db_config)?;
+		let backend = new_db_backend(db_source, db_config)?;
 
 		let extensions = sc_client_api::execution_extensions::ExecutionExtensions::new(
 			config.execution_strategies.clone(),
@@ -321,6 +321,7 @@ where
 
 /// Create an instance of default DB-backend backend.
 pub fn new_db_backend<Block>(
+	db_source: DatabaseSource,
 	settings: DatabaseSettings,
 ) -> Result<Arc<Backend<Block>>, sp_blockchain::Error>
 where
@@ -328,7 +329,7 @@ where
 {
 	const CANONICALIZATION_DELAY: u64 = 4096;
 
-	Ok(Arc::new(Backend::new(settings, CANONICALIZATION_DELAY)?))
+	Ok(Arc::new(Backend::new(db_source, settings, CANONICALIZATION_DELAY)?))
 }
 
 /// Create an instance of client backed by given backend.
