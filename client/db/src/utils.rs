@@ -185,6 +185,8 @@ fn backend_err(feat: &'static str) -> sp_blockchain::Error {
 pub fn open_database<Block: BlockT>(
 	db_source: &DatabaseSource,
 	db_type: DatabaseType,
+	create: bool,
+	
 ) -> sp_blockchain::Result<Arc<dyn Database<DbHash>>> {
 	// Maybe migrate (copy) the database to a type specific subdirectory to make it
 	// possible that light and full databases coexist
@@ -193,24 +195,25 @@ pub fn open_database<Block: BlockT>(
 		sp_blockchain::Error::Backend(format!("Error in migration to role subdirectory: {}", e))
 	})?;
 
-	open_database_at::<Block>(&db_source, db_type)
+	open_database_at::<Block>(&db_source, db_type, create)
 }
 
 fn open_database_at<Block: BlockT>(
 	source: &DatabaseSource,
 	db_type: DatabaseType,
+	create: bool,
 ) -> sp_blockchain::Result<Arc<dyn Database<DbHash>>> {
 	let db: Arc<dyn Database<DbHash>> = match &source {
-		DatabaseSource::ParityDb { path } => open_parity_db::<Block>(&path, db_type, true)?,
+		DatabaseSource::ParityDb { path } => open_parity_db::<Block>(&path, db_type, create)?,
 		DatabaseSource::RocksDb { path, cache_size } =>
-			open_kvdb_rocksdb::<Block>(&path, db_type, true, *cache_size)?,
+			open_kvdb_rocksdb::<Block>(&path, db_type, create, *cache_size)?,
 		DatabaseSource::Custom(db) => db.clone(),
 		DatabaseSource::Auto { paritydb_path, rocksdb_path, cache_size } => {
 			// check if rocksdb exists first, if not, open paritydb
 			match open_kvdb_rocksdb::<Block>(&rocksdb_path, db_type, false, *cache_size) {
 				Ok(db) => db,
 				Err(OpenDbError::NotEnabled(_)) | Err(OpenDbError::DoesNotExist) =>
-					open_parity_db::<Block>(&paritydb_path, db_type, true)?,
+					open_parity_db::<Block>(&paritydb_path, db_type, create)?,
 				Err(_) => return Err(backend_err("cannot open rocksdb. corrupted database")),
 			}
 		},
@@ -394,7 +397,7 @@ fn maybe_migrate_to_type_subdir<Block: BlockT>(
 			// database stored in the target directory and close the database on success.
 			let mut old_source = source.clone();
 			old_source.set_path(&basedir);
-			open_database_at::<Block>(&old_source, db_type)
+			open_database_at::<Block>(&old_source, db_type, true)
 				.map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
 			info!(
@@ -601,7 +604,7 @@ mod tests {
 			db_source.set_path(&old_db_path);
 
 			{
-				let db_res = open_database::<Block>(&db_source, db_type);
+				let db_res = open_database::<Block>(&db_source, db_type, true);
 				assert!(db_res.is_ok(), "New database should be created.");
 				assert!(old_db_path.join(db_check_file).exists());
 				assert!(!old_db_path.join(db_type.as_str()).join("db_version").exists());
@@ -609,7 +612,7 @@ mod tests {
 
 			db_source.set_path(&old_db_path.join(db_type.as_str()));
 
-			let db_res = open_database::<Block>(&db_source, db_type);
+			let db_res = open_database::<Block>(&db_source, db_type, true);
 			assert!(db_res.is_ok(), "Reopening the db with the same role should work");
 			// check if the database dir had been migrated
 			assert!(!old_db_path.join(db_check_file).exists());
@@ -637,7 +640,7 @@ mod tests {
 			let db_source = DatabaseSource::RocksDb { path: old_db_path.clone(), cache_size: 128 };
 
 			{
-				let db_res = open_database::<Block>(&db_source, DatabaseType::Full);
+				let db_res = open_database::<Block>(&db_source, DatabaseType::Full, true);
 				assert!(db_res.is_ok(), "New database should be created.");
 
 				// check if the database dir had been migrated

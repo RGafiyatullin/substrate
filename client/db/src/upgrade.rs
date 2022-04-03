@@ -204,6 +204,7 @@ mod tests {
 		crate::utils::open_database::<Block>(
 			&DatabaseSource::RocksDb { path: db_path.to_owned(), cache_size: 128 },
 			db_type,
+			true,
 		)
 		.map(|_| ())
 	}
