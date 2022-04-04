@@ -1087,22 +1087,22 @@ impl<Block: BlockT> Backend<Block> {
 			StateDb::<Block::Hash, Vec<u8>>::meta_data_fetch_pruning_mode(&state_meta_db)?;
 		let state_pruning_requested = config.state_pruning.clone();
 
-		let (should_update_meta, state_pruning_used) = match (should_init, state_pruning_stored, state_pruning_requested) {
+		let (should_update_meta, state_pruning_used) = match (should_init, state_pruning_stored.as_ref(), state_pruning_requested.as_ref()) {
 			(true, stored, requested) => {
 				assert!(stored.is_none(), "The storage has just been initialized. No meta-data is expected to be found there");
-				(true, requested.unwrap_or_default())
+				(true, requested.cloned().unwrap_or_default())
 			},
 			(false, None, _requested) => {
 				return Err(sp_blockchain::Error::Backend(format!("An existing StateDb does not have PRUNING_MODE stored in its meta-data")))
 			},
 			(false, Some(some_stored), Some(same_requested)) if some_stored == same_requested => {
-				(false, some_stored)
+				(false, some_stored.clone())
 			},
 			(false, Some(PruningMode::Constrained(_constraints_stored)), Some(PruningMode::Constrained(constraints_requested))) => {
-				(true, PruningMode::Constrained(constraints_requested))
+				(true, PruningMode::Constrained(constraints_requested.clone()))
 			},
 			(false, Some(some_stored), None) => {
-				(false, some_stored)
+				(false, some_stored.clone())
 			},
 			(false, Some(some_stored), Some(incompatible_requested)) => {
 				return Err(sp_blockchain::Error::Backend(
@@ -1111,6 +1111,13 @@ impl<Block: BlockT> Backend<Block> {
 						incompatible_requested, some_stored)))
 			},
 		};
+
+		eprintln!("StateDB.should_init: {:?}", should_init);
+		eprintln!("StateDB.pruning_mode");
+		eprintln!("\trequested: {:?}", state_pruning_requested);
+		eprintln!("\tstored:    {:?}", state_pruning_stored);
+		eprintln!("\tused:      {:?}", state_pruning_used);
+		eprintln!("StateDB.should_update_meta: {:?}", should_update_meta);
 		if should_update_meta {
 			StateDb::<Block::Hash, Vec<u8>>::meta_data_write_pruning_mode(
 				&mut state_meta_db,

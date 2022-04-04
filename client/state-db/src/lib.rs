@@ -99,7 +99,7 @@ impl<
 {
 }
 
-/// Backend database trait. Read-only.
+/// Access the Database to store and read the meta-data
 pub trait MetaDb {
 	type Error: fmt::Debug;
 
