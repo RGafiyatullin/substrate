@@ -43,6 +43,8 @@
 
 mod noncanonical;
 mod pruning;
+
+mod meta_data;
 #[cfg(test)]
 mod test;
 
@@ -103,6 +105,9 @@ pub trait MetaDb {
 
 	/// Get meta value, such as the journal.
 	fn get_meta(&self, key: &[u8]) -> Result<Option<DBValue>, Self::Error>;
+
+	fn set_meta<V: AsRef<[u8]>>(&mut self, key: &[u8], value: Option<V>)
+		-> Result<(), Self::Error>;
 }
 
 /// Backend database trait. Read-only.
@@ -180,13 +185,18 @@ pub struct CommitSet<H: Hash> {
 }
 
 /// Pruning constraints. If none are specified pruning is
-#[derive(Default, Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, codec::Encode, codec::Decode)]
 pub struct Constraints {
 	/// Maximum blocks. Defaults to 0 when unspecified, effectively keeping only non-canonical
 	/// states.
 	pub max_blocks: Option<u32>,
 	/// Maximum memory in the pruning overlay.
-	pub max_mem: Option<usize>,
+	pub max_mem: Option<u64>,
+}
+impl Default for Constraints {
+	fn default() -> Self {
+		Self { max_blocks: Some(256), max_mem: None }
+	}
 }
 
 /// Pruning mode.
@@ -226,7 +236,7 @@ impl PruningMode {
 
 impl Default for PruningMode {
 	fn default() -> Self {
-		PruningMode::keep_blocks(256)
+		PruningMode::Constrained(Default::default())
 	}
 }
 
@@ -284,26 +294,38 @@ impl<BlockHash: Hash + MallocSizeOf, Key: Hash + MallocSizeOf> StateDbSync<Block
 		parent_hash: &BlockHash,
 		mut changeset: ChangeSet<Key>,
 	) -> Result<CommitSet<Key>, Error<E>> {
-		let mut meta = ChangeSet::default();
-		if number == 0 {
-			// Save pruning mode when writing first block.
-			meta.inserted.push((to_meta_key(PRUNING_MODE, &()), self.mode.id().into()));
-		}
-
 		match self.mode {
 			PruningMode::ArchiveAll => {
 				changeset.deleted.clear();
 				// write changes immediately
-				Ok(CommitSet { data: changeset, meta })
+				Ok(CommitSet { data: changeset, meta: Default::default() })
 			},
 			PruningMode::Constrained(_) | PruningMode::ArchiveCanonical => {
-				let commit = self.non_canonical.insert(hash, number, parent_hash, changeset);
-				commit.map(|mut c| {
-					c.meta.inserted.extend(meta.inserted);
-					c
-				})
+				self.non_canonical.insert(hash, number, parent_hash, changeset)
 			},
 		}
+
+		// let mut meta = ChangeSet::default();
+
+		// if number == 0 {
+		// 	// Save pruning mode when writing first block.
+		// 	meta.inserted.push((to_meta_key(PRUNING_MODE, &()), self.mode.id().into()));
+		// }
+
+		// match self.mode {
+		// 	PruningMode::ArchiveAll => {
+		// 		changeset.deleted.clear();
+		// 		// write changes immediately
+		// 		Ok(CommitSet { data: changeset, meta, })
+		// 	},
+		// 	PruningMode::Constrained(_) | PruningMode::ArchiveCanonical => {
+		// 		let commit = self.non_canonical.insert(hash, number, parent_hash, changeset);
+		// 		commit.map(|mut c| {
+		// 			c.meta.inserted.extend(meta.inserted);
+		// 			c
+		// 		})
+		// 	},
+		// }
 	}
 
 	fn canonicalize_block<E: fmt::Debug>(
@@ -356,7 +378,7 @@ impl<BlockHash: Hash + MallocSizeOf, Key: Hash + MallocSizeOf> StateDbSync<Block
 					break
 				}
 
-				if constraints.max_mem.map_or(false, |m| pruning.mem_used() > m) {
+				if constraints.max_mem.map_or(false, |m| pruning.mem_used() > m as usize) {
 					break
 				}
 

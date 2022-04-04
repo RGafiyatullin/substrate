@@ -177,10 +177,6 @@ where
 	})
 }
 
-fn backend_err(feat: &'static str) -> sp_blockchain::Error {
-	sp_blockchain::Error::Backend(feat.to_string())
-}
-
 /// Opens the configured database.
 pub fn open_database<Block: BlockT>(
 	db_source: &DatabaseSource,
@@ -249,7 +245,12 @@ impl fmt::Display for OpenDbError {
 				write!(f, "Database Error: {}", db_error)
 			},
 			OpenDbError::UnexpectedDbType { expected, found } => {
-				write!(f, "Unexpected DB-Type. Expected: {:?}, Found: {:?}", expected.as_str().as_bytes(), found)
+				write!(
+					f,
+					"Unexpected DB-Type. Expected: {:?}, Found: {:?}",
+					expected.as_str().as_bytes(),
+					found
+				)
 			},
 			OpenDbError::MigrateToSubdir(io_err) => {
 				write!(f, "Failed to migrate to subdir: {}", io_err)

@@ -413,10 +413,27 @@ struct PendingBlock<Block: BlockT> {
 struct StateMetaDb<'a>(&'a dyn Database<DbHash>);
 
 impl<'a> sc_state_db::MetaDb for StateMetaDb<'a> {
-	type Error = io::Error;
+	type Error = sp_database::error::DatabaseError;
 
 	fn get_meta(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error> {
 		Ok(self.0.get(columns::STATE_META, key))
+	}
+	fn set_meta<V: AsRef<[u8]>>(
+		&mut self,
+		key: &[u8],
+		value: Option<V>,
+	) -> Result<(), Self::Error> {
+		let mut transaction = Transaction::new();
+
+		if let Some(value) = value {
+			transaction.set(columns::STATE_META, key, value.as_ref());
+		} else {
+			transaction.remove(columns::STATE_META, key);
+		}
+		
+		self.0.commit(transaction)?;
+		
+		Ok(())
 	}
 }
 
@@ -1014,7 +1031,7 @@ impl<Block: BlockT> Backend<Block> {
 				Err(as_is) => return Err(as_is.into()),
 			};
 
-		Self::from_database(db as Arc<_>, canonicalization_delay, &db_config, needs_init)
+		Self::from_database(db, canonicalization_delay, &db_config, needs_init)
 	}
 
 	/// Create new memory-backed client backend for tests.
@@ -1064,25 +1081,52 @@ impl<Block: BlockT> Backend<Block> {
 	) -> ClientResult<Self> {
 		eprintln!("config.state_pruning: {:?}", config.state_pruning);
 
-		let state_meta_db = StateMetaDb(db.as_ref());
-		let state_pruning = config.state_pruning.clone().unwrap_or_else(|| {
-			if should_init {
-				Default::default()
-			} else {
-				unimplemented!()
-			}
-		});
+		let mut state_meta_db = StateMetaDb(db.as_ref());
 
-		let is_archive_pruning = state_pruning.is_archive();
+		let state_pruning_stored =
+			StateDb::<Block::Hash, Vec<u8>>::meta_data_fetch_pruning_mode(&state_meta_db)?;
+		let state_pruning_requested = config.state_pruning.clone();
+
+		let (should_update_meta, state_pruning_used) = match (should_init, state_pruning_stored, state_pruning_requested) {
+			(true, stored, requested) => {
+				assert!(stored.is_none(), "The storage has just been initialized. No meta-data is expected to be found there");
+				(true, requested.unwrap_or_default())
+			},
+			(false, None, _requested) => {
+				return Err(sp_blockchain::Error::Backend(format!("An existing StateDb does not have PRUNING_MODE stored in its meta-data")))
+			},
+			(false, Some(some_stored), Some(same_requested)) if some_stored == same_requested => {
+				(false, some_stored)
+			},
+			(false, Some(PruningMode::Constrained(_constraints_stored)), Some(PruningMode::Constrained(constraints_requested))) => {
+				(true, PruningMode::Constrained(constraints_requested))
+			},
+			(false, Some(some_stored), None) => {
+				(false, some_stored)
+			},
+			(false, Some(some_stored), Some(incompatible_requested)) => {
+				return Err(sp_blockchain::Error::Backend(
+					format!(
+						"Requested pruning-mode is incompatible with the pruning-mode used upon previous usage [requested: {:?}; stored: {:?}]", 
+						incompatible_requested, some_stored)))
+			},
+		};
+		if should_update_meta {
+			StateDb::<Block::Hash, Vec<u8>>::meta_data_write_pruning_mode(
+				&mut state_meta_db,
+				state_pruning_used.clone(),
+			)?;
+		}
+
+		let is_archive_pruning = state_pruning_used.is_archive();
 		let blockchain = BlockchainDb::new(db.clone())?;
-		let map_e = |e: sc_state_db::Error<io::Error>| sp_blockchain::Error::from_state_db(e);
-			
-		let state_db: StateDb<_, _> = StateDb::new(
-			state_pruning.clone(),
-			!db.supports_ref_counting(),
-			&state_meta_db,
-		)
-		.map_err(map_e)?;
+		let map_e = |e: sc_state_db::Error<sp_database::error::DatabaseError>| {
+			sp_blockchain::Error::from_state_db(e)
+		};
+
+		let state_db: StateDb<_, _> =
+			StateDb::new(state_pruning_used.clone(), !db.supports_ref_counting(), &state_meta_db)
+				.map_err(map_e)?;
 		let storage_db =
 			StorageDb { db: db.clone(), state_db, prefix_keys: !db.supports_ref_counting() };
 		let offchain_storage = offchain::LocalStorage::new(db.clone());
