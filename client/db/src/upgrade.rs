@@ -207,6 +207,7 @@ mod tests {
 			true,
 		)
 		.map(|_| ())
+		.map_err(|e| sp_blockchain::Error::Backend(e.to_string()))
 	}
 
 	#[test]

@@ -296,7 +296,7 @@ pub struct DatabaseSettings {
 	/// Ratio of cache size dedicated to child tries.
 	pub state_cache_child_ratio: Option<(usize, usize)>,
 	/// State pruning mode.
-	pub state_pruning: PruningMode,
+	pub state_pruning: Option<PruningMode>,
 	/// Block pruning mode.
 	pub keep_blocks: KeepBlocks,
 }
@@ -1001,8 +1001,20 @@ impl<Block: BlockT> Backend<Block> {
 		db_config: DatabaseSettings,
 		canonicalization_delay: u64,
 	) -> ClientResult<Self> {
-		let db = crate::utils::open_database::<Block>(&db_source, DatabaseType::Full, true)?;
-		Self::from_database(db as Arc<_>, canonicalization_delay, &db_config)
+		use utils::OpenDbError;
+
+		let (needs_init, db) =
+			match crate::utils::open_database::<Block>(&db_source, DatabaseType::Full, false) {
+				Ok(db) => (false, db),
+				Err(OpenDbError::DoesNotExist) => {
+					let db =
+						crate::utils::open_database::<Block>(&db_source, DatabaseType::Full, true)?;
+					(true, db)
+				},
+				Err(as_is) => return Err(as_is.into()),
+			};
+
+		Self::from_database(db as Arc<_>, canonicalization_delay, &db_config, needs_init)
 	}
 
 	/// Create new memory-backed client backend for tests.
@@ -1020,7 +1032,7 @@ impl<Block: BlockT> Backend<Block> {
 		let db_setting = DatabaseSettings {
 			state_cache_size: 16777216,
 			state_cache_child_ratio: Some((50, 100)),
-			state_pruning: PruningMode::keep_blocks(keep_blocks),
+			state_pruning: Some(PruningMode::keep_blocks(keep_blocks)),
 			keep_blocks: KeepBlocks::Some(keep_blocks),
 		};
 
@@ -1048,14 +1060,27 @@ impl<Block: BlockT> Backend<Block> {
 		db: Arc<dyn Database<DbHash>>,
 		canonicalization_delay: u64,
 		config: &DatabaseSettings,
+		should_init: bool,
 	) -> ClientResult<Self> {
-		let is_archive_pruning = config.state_pruning.is_archive();
+		eprintln!("config.state_pruning: {:?}", config.state_pruning);
+
+		let state_meta_db = StateMetaDb(db.as_ref());
+		let state_pruning = config.state_pruning.clone().unwrap_or_else(|| {
+			if should_init {
+				Default::default()
+			} else {
+				unimplemented!()
+			}
+		});
+
+		let is_archive_pruning = state_pruning.is_archive();
 		let blockchain = BlockchainDb::new(db.clone())?;
 		let map_e = |e: sc_state_db::Error<io::Error>| sp_blockchain::Error::from_state_db(e);
+			
 		let state_db: StateDb<_, _> = StateDb::new(
-			config.state_pruning.clone(),
+			state_pruning.clone(),
 			!db.supports_ref_counting(),
-			&StateMetaDb(&*db),
+			&state_meta_db,
 		)
 		.map_err(map_e)?;
 		let storage_db =
@@ -2387,7 +2412,7 @@ pub(crate) mod tests {
 			DatabaseSettings {
 				state_cache_size: 16777216,
 				state_cache_child_ratio: Some((50, 100)),
-				state_pruning: PruningMode::keep_blocks(1),
+				state_pruning: Some(PruningMode::keep_blocks(1)),
 				keep_blocks: KeepBlocks::All,
 			},
 			0,

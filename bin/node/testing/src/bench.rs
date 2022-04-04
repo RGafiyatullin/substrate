@@ -391,7 +391,7 @@ impl BenchDb {
 		let db_config = sc_client_db::DatabaseSettings {
 			state_cache_size: 16 * 1024 * 1024,
 			state_cache_child_ratio: Some((0, 100)),
-			state_pruning: PruningMode::ArchiveAll,
+			state_pruning: Some(PruningMode::ArchiveAll),
 			keep_blocks: sc_client_db::KeepBlocks::All,
 		};
 		let task_executor = TaskExecutor::new();
