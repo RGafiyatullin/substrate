@@ -19,7 +19,7 @@ sp-state-machine = { version = "0.10.0", path = "../../../primitives/state-machi
 serde = "1.0.132"
 serde_json = "1.0.74"
 structopt = "0.3"
-derive_more = "0.99.16"
+derive_more = "0.99.17"
 kvdb = "0.10.0"
 kvdb-rocksdb = "0.14.0"
 sp-trie = { version = "4.0.0", path = "../../../primitives/trie" }
