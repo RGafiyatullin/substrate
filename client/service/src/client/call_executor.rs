@@ -150,6 +150,8 @@ where
 		strategy: ExecutionStrategy,
 		extensions: Option<Extensions>,
 	) -> sp_blockchain::Result<Vec<u8>> {
+		eprintln!("CallExecutor::call [at: {}; method: {:?}; data-len: {:?}]", at, method, call_data.len());
+
 		let mut changes = OverlayedChanges::default();
 		let state = self.backend.state_at(*at)?;
 		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&state);
@@ -203,6 +205,8 @@ where
 	where
 		ExecutionManager<EM>: Clone,
 	{
+		eprintln!("CallExecutor::contextual_call [at: {}; method: {:?}; data-len: {:?}]", at, method, call_data.len());
+
 		let mut storage_transaction_cache = storage_transaction_cache.map(|c| c.borrow_mut());
 
 		let state = self.backend.state_at(*at)?;
@@ -292,6 +296,8 @@ where
 		method: &str,
 		call_data: &[u8],
 	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)> {
+		eprintln!("CallExecutor::prove_execution [at: {}; method: {:?}; data-len: {:?}]", at, method, call_data.len());
+
 		let state = self.backend.state_at(*at)?;
 
 		let trie_backend = state.as_trie_backend().ok_or_else(|| {

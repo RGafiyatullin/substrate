@@ -20,6 +20,7 @@
 // end::description[]
 
 mod block;
+mod call_at;
 mod checked_extrinsic;
 mod digest;
 mod era;
@@ -30,6 +31,7 @@ mod unchecked_extrinsic;
 
 pub use self::{
 	block::{Block, BlockId, SignedBlock},
+	call_at::CallAt,
 	checked_extrinsic::CheckedExtrinsic,
 	digest::{Digest, DigestItem, DigestItemRef, OpaqueDigestItemId},
 	era::{Era, Phase},

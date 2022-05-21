@@ -22,7 +22,7 @@ use codec::{Decode, Encode};
 use sc_executor::{RuntimeVersion, RuntimeVersionOf};
 use sp_core::NativeOrEncoded;
 use sp_externalities::Extensions;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::{generic::CallAt, generic::BlockId, traits::Block as BlockT};
 use sp_state_machine::{ExecutionManager, ExecutionStrategy, OverlayedChanges, StorageProof};
 use std::{cell::RefCell, panic::UnwindSafe, result};
 
