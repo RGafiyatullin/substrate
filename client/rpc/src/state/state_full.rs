@@ -304,7 +304,8 @@ where
 		self.block_or_best(block).map_err(client_err).and_then(|block| {
 			self.client
 				.runtime_api()
-				.metadata(&BlockId::Hash(block))
+				// FIXME
+				.metadata(BlockId::Hash(block).into())
 				.map(Into::into)
 				.map_err(|e| Error::Client(Box::new(e)))
 		})

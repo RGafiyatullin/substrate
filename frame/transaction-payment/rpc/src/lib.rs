@@ -108,7 +108,8 @@ where
 				Some(format!("{:?}", e)),
 			))
 		})?;
-		api.query_info(&at, uxt, encoded_len).map_err(|e| {
+		// FIXME
+		api.query_info(at.into(), uxt, encoded_len).map_err(|e| {
 			CallError::Custom(ErrorObject::owned(
 				Error::RuntimeError.into(),
 				"Unable to query dispatch info.",
@@ -135,7 +136,8 @@ where
 				Some(format!("{:?}", e)),
 			))
 		})?;
-		let fee_details = api.query_fee_details(&at, uxt, encoded_len).map_err(|e| {
+		// FIXME
+		let fee_details = api.query_fee_details(at.into(), uxt, encoded_len).map_err(|e| {
 			CallError::Custom(ErrorObject::owned(
 				Error::RuntimeError.into(),
 				"Unable to query fee details.",

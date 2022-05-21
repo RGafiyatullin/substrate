@@ -434,7 +434,8 @@ impl BenchDb {
 		client
 			.runtime_api()
 			.inherent_extrinsics_with_context(
-				&BlockId::number(0),
+				// FIXME
+				BlockId::number(0).into(),
 				ExecutionContext::BlockConstruction,
 				inherent_data,
 			)

@@ -543,7 +543,8 @@ where
 			.client
 			.runtime_api()
 			.generate_key_ownership_proof(
-				&BlockId::Hash(current_set_latest_hash),
+				// FIXME
+				BlockId::Hash(current_set_latest_hash).into(),
 				authority_set.set_id,
 				equivocation.offender().clone(),
 			)
@@ -562,7 +563,8 @@ where
 		self.client
 			.runtime_api()
 			.submit_report_equivocation_unsigned_extrinsic(
-				&BlockId::Hash(best_block_hash),
+				// FIXME
+				BlockId::Hash(best_block_hash).into(),
 				equivocation_proof,
 				key_owner_proof,
 			)

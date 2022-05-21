@@ -365,7 +365,8 @@ where
 		let mut authorities = self
 			.client
 			.runtime_api()
-			.authorities(&id)
+			// FIXME
+			.authorities(id.into())
 			.map_err(|e| Error::CallingRuntime(e.into()))?
 			.into_iter()
 			.filter(|id| !local_keys.contains(id.as_ref()))
@@ -577,7 +578,8 @@ where
 		let id = BlockId::hash(client.info().best_hash);
 		let authorities = client
 			.runtime_api()
-			.authorities(&id)
+			// FIXME
+			.authorities(id.into())
 			.map_err(|e| Error::CallingRuntime(e.into()))?
 			.into_iter()
 			.map(Into::into)

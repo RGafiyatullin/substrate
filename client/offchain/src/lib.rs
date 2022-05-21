@@ -182,11 +182,13 @@ where
 
 				let context = ExecutionContext::OffchainCall(Some((api, capabilities)));
 				let run = if version == 2 {
-					runtime.offchain_worker_with_context(&at, context, &header)
+					// FIXME
+					runtime.offchain_worker_with_context(at.into(), context, &header)
 				} else {
 					#[allow(deprecated)]
 					runtime.offchain_worker_before_version_2_with_context(
-						&at,
+						// FIXME
+						at.into(),
 						context,
 						*header.number(),
 					)

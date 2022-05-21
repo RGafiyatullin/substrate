@@ -88,7 +88,7 @@ pub use sp_core::{offchain, ExecutionContext};
 pub use sp_runtime::StateVersion;
 #[doc(hidden)]
 pub use sp_runtime::{
-	generic::BlockId,
+	generic::{BlockId, CallAt},
 	traits::{
 		Block as BlockT, GetNodeBlockType, GetRuntimeBlockType, Hash as HashT, HashFor,
 		Header as HeaderT, NumberFor,
@@ -524,8 +524,8 @@ pub trait ApiExt<Block: BlockT> {
 /// Parameters for [`CallApiAt::call_api_at`].
 #[cfg(feature = "std")]
 pub struct CallApiAtParams<'a, Block: BlockT, NC, Backend: StateBackend<HashFor<Block>>> {
-	/// The block id that determines the state that should be setup when calling the function.
-	pub at: &'a BlockId<Block>,
+	/// FIXME!!! The block id that determines the state that should be setup when calling the function.
+	pub call_at: CallAt<Block>,
 	/// The name of the function that should be called.
 	pub function: &'static str,
 	/// An optional native call that calls the `function`. This is an optimization to call into a

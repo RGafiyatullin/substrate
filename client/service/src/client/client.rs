@@ -814,7 +814,8 @@ where
 				let execution_context = import_block.origin.into();
 
 				runtime_api.execute_block_with_context(
-					&at,
+					// FIXME
+					at.into(),
 					execution_context,
 					Block::new(import_block.header.clone(), body.clone()),
 				)?;
@@ -1666,14 +1667,16 @@ where
 		&self,
 		params: CallApiAtParams<Block, NC, B::State>,
 	) -> Result<NativeOrEncoded<R>, sp_api::ApiError> {
-		let at = params.at;
+		let call_at = params.call_at;
+		// FIXME!!!
+		let at = params.call_at.block_id();
 
 		let (manager, extensions) =
-			self.execution_extensions.manager_and_extensions(at, params.context);
+			self.execution_extensions.manager_and_extensions(&at, params.context);
 
 		self.executor
 			.contextual_call::<fn(_, _) -> _, _, _>(
-				at,
+				call_at,
 				params.function,
 				&params.arguments,
 				params.overlayed_changes,

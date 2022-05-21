@@ -114,7 +114,8 @@ where
 			let start = Instant::now();
 
 			runtime_api
-				.execute_block(&parent_num, block)
+				// FIXME
+				.execute_block(parent_num.into(), block)
 				.map_err(|e| Error::Client(RuntimeApiError(e)))?;
 
 			record.push(start.elapsed().as_nanos() as NanoSeconds);

@@ -300,7 +300,8 @@ where
 		let inherent_res = self
 			.client
 			.runtime_api()
-			.check_inherents_with_context(&block_id, execution_context, block, inherent_data)
+			// FIXME
+			.check_inherents_with_context(block_id.into(), execution_context, block, inherent_data)
 			.map_err(|e| Error::Client(e.into()))?;
 
 		if !inherent_res.ok() {

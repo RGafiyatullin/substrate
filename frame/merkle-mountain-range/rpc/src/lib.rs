@@ -162,7 +162,8 @@ where
 
 		let (leaf, proof) = api
 			.generate_proof_with_context(
-				&BlockId::hash(block_hash),
+				// FIXME
+				BlockId::hash(block_hash).into(),
 				sp_core::ExecutionContext::OffchainCall(None),
 				leaf_index,
 			)
@@ -184,7 +185,8 @@ where
 
 		let (leaves, proof) = api
 			.generate_batch_proof_with_context(
-				&BlockId::hash(block_hash),
+				// FIXME
+				BlockId::hash(block_hash).into(),
 				sp_core::ExecutionContext::OffchainCall(None),
 				leaf_indices,
 			)

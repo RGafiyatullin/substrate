@@ -75,7 +75,7 @@ pub trait CallExecutor<B: BlockT>: RuntimeVersionOf {
 		NC: FnOnce() -> result::Result<R, sp_api::ApiError> + UnwindSafe,
 	>(
 		&self,
-		at: &BlockId<B>,
+		at: CallAt<B>,
 		method: &str,
 		call_data: &[u8],
 		changes: &RefCell<OverlayedChanges>,

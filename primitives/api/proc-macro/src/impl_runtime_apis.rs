@@ -484,7 +484,7 @@ impl<'a> Fold for ApiRuntimeImplToApiRuntimeApiImpl<'a> {
 			// Rewrite the input parameters.
 			input.sig.inputs = parse_quote! {
 				&self,
-				at: &#crate_::BlockId<__SR_API_BLOCK__>,
+				at: #crate_::CallAt<__SR_API_BLOCK__>,
 				context: #crate_::ExecutionContext,
 				params: Option<( #( #param_types ),* )>,
 				params_encoded: Vec<u8>,

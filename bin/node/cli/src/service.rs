@@ -55,7 +55,8 @@ pub fn fetch_nonce(client: &FullClient, account: sp_core::sr25519::Pair) -> u32 
 	let best_hash = client.chain_info().best_hash;
 	client
 		.runtime_api()
-		.account_nonce(&generic::BlockId::Hash(best_hash), account.public().into())
+		// FIXME
+		.account_nonce(generic::BlockId::Hash(best_hash).into(), account.public().into())
 		.expect("Fetching account nonce works; qed")
 }
 

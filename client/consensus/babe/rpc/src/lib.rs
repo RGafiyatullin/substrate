@@ -95,7 +95,7 @@ where
 		let epoch_start = self
 			.client
 			.runtime_api()
-			.current_epoch_start(&BlockId::Hash(header.hash()))
+			.current_epoch_start(BlockId::Hash(header.hash()).into())
 			.map_err(|err| Error::StringError(format!("{:?}", err)))?;
 
 		let epoch = epoch_data(

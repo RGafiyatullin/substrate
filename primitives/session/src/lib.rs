@@ -121,7 +121,8 @@ where
 	let runtime_api = client.runtime_api();
 
 	for seed in seeds {
-		runtime_api.generate_session_keys(at, Some(seed.as_bytes().to_vec()))?;
+		// FIXME
+		runtime_api.generate_session_keys(at.into(), Some(seed.as_bytes().to_vec()))?;
 	}
 
 	Ok(())

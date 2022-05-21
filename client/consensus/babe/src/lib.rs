@@ -367,10 +367,10 @@ impl Config {
 		let genesis_config = if version == Some(1) {
 			#[allow(deprecated)]
 			{
-				runtime_api.configuration_before_version_2(&best_block_id)?.into()
+				runtime_api.configuration_before_version_2(best_block_id.into())?.into()
 			}
 		} else if version == Some(2) {
-			runtime_api.configuration(&best_block_id)?
+			runtime_api.configuration(best_block_id.into())?
 		} else {
 			return Err(sp_blockchain::Error::VersionInvalid(
 				"Unsupported or invalid BabeApi version".to_string(),
@@ -1078,7 +1078,8 @@ where
 		let inherent_res = self
 			.client
 			.runtime_api()
-			.check_inherents_with_context(&block_id, execution_context, block, inherent_data)
+			// FIXME
+			.check_inherents_with_context(block_id.into(), execution_context, block, inherent_data)
 			.map_err(Error::RuntimeApi)?;
 
 		if !inherent_res.ok() {
@@ -1143,7 +1144,8 @@ where
 		let generate_key_owner_proof = |block_id: &BlockId<Block>| {
 			self.client
 				.runtime_api()
-				.generate_key_ownership_proof(block_id, slot, equivocation_proof.offender.clone())
+				// FIXME
+				.generate_key_ownership_proof(block_id.into(), slot, equivocation_proof.offender.clone())
 				.map_err(Error::RuntimeApi)
 		};
 
@@ -1163,7 +1165,8 @@ where
 		self.client
 			.runtime_api()
 			.submit_report_equivocation_unsigned_extrinsic(
-				&best_id,
+				// FIXME
+				best_id.into(),
 				equivocation_proof,
 				key_owner_proof,
 			)
@@ -1427,10 +1430,12 @@ where
 
 		// Read epoch info from the imported state.
 		let block_id = BlockId::hash(hash);
-		let current_epoch = self.client.runtime_api().current_epoch(&block_id).map_err(|e| {
+		// FIXME
+		let current_epoch = self.client.runtime_api().current_epoch(block_id.into()).map_err(|e| {
 			ConsensusError::ClientImport(babe_err::<Block>(Error::RuntimeApi(e)).into())
 		})?;
-		let next_epoch = self.client.runtime_api().next_epoch(&block_id).map_err(|e| {
+		// FIXME
+		let next_epoch = self.client.runtime_api().next_epoch(block_id.into()).map_err(|e| {
 			ConsensusError::ClientImport(babe_err::<Block>(Error::RuntimeApi(e)).into())
 		})?;
 

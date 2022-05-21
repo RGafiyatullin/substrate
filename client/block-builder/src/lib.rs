@@ -183,7 +183,8 @@ where
 
 		let block_id = BlockId::Hash(parent_hash);
 
-		api.initialize_block_with_context(&block_id, ExecutionContext::BlockConstruction, &header)?;
+		// FIXME
+		api.initialize_block_with_context(block_id.into(), ExecutionContext::BlockConstruction, &header)?;
 
 		let version = api
 			.api_version::<dyn BlockBuilderApi<Block>>(&block_id)?
@@ -212,14 +213,16 @@ where
 			let res = if version < 6 {
 				#[allow(deprecated)]
 				api.apply_extrinsic_before_version_6_with_context(
-					block_id,
+					// FIXME
+					block_id.into(),
 					ExecutionContext::BlockConstruction,
 					xt.clone(),
 				)
 				.map(legacy::byte_sized_error::convert_to_latest)
 			} else {
 				api.apply_extrinsic_with_context(
-					block_id,
+					// FIXME
+					block_id.into(),
 					ExecutionContext::BlockConstruction,
 					xt.clone(),
 				)
@@ -246,7 +249,8 @@ where
 	pub fn build(mut self) -> Result<BuiltBlock<Block, backend::StateBackendFor<B, Block>>, Error> {
 		let header = self
 			.api
-			.finalize_block_with_context(&self.block_id, ExecutionContext::BlockConstruction)?;
+			// FIXME
+			.finalize_block_with_context(self.block_id.into(), ExecutionContext::BlockConstruction)?;
 
 		debug_assert_eq!(
 			header.extrinsics_root().clone(),
@@ -286,7 +290,8 @@ where
 				// `create_inherents` should not change any state, to ensure this we always rollback
 				// the transaction.
 				TransactionOutcome::Rollback(api.inherent_extrinsics_with_context(
-					&block_id,
+					// FIXME
+					block_id.into(),
 					ExecutionContext::BlockConstruction,
 					inherent_data,
 				))

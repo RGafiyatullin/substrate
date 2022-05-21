@@ -338,6 +338,7 @@ fn generate_call_api_at_calls(decl: &ItemTrait) -> Result<TokenStream> {
 		let trait_name = &decl.ident;
 		let trait_fn_name = prefix_function_with_trait(trait_name, &fn_.ident);
 		let fn_name = generate_call_api_at_fn_name(&fn_.ident);
+		let fn_name_formatted = format!("{}", fn_name);
 
 		let attrs = remove_supported_attributes(&mut attrs.clone());
 
@@ -384,7 +385,7 @@ fn generate_call_api_at_calls(decl: &ItemTrait) -> Result<TokenStream> {
 				T: #crate_::CallApiAt<Block>,
 			>(
 				call_runtime_at: &T,
-				at: &#crate_::BlockId<Block>,
+				into_call_at: impl Into<#crate_::CallAt<Block>>,
 				args: std::vec::Vec<u8>,
 				changes: &std::cell::RefCell<#crate_::OverlayedChanges>,
 				storage_transaction_cache: &std::cell::RefCell<
@@ -394,7 +395,11 @@ fn generate_call_api_at_calls(decl: &ItemTrait) -> Result<TokenStream> {
 				context: #crate_::ExecutionContext,
 				recorder: &std::option::Option<#crate_::ProofRecorder<Block>>,
 			) -> std::result::Result<#crate_::NativeOrEncoded<R>, #crate_::ApiError> {
-				let version = call_runtime_at.runtime_version_at(at)?;
+				// FIXME!!! A temporary measure.
+				let call_at = into_call_at.into();
+				eprintln!("GENERATED fn: {} [call-at: {}]", #fn_name_formatted, call_at);
+				
+				let version = call_runtime_at.runtime_version_at(&call_at.block_id())?;
 
 				#(
 					// Check if we need to call the function by an old name.
@@ -402,7 +407,7 @@ fn generate_call_api_at_calls(decl: &ItemTrait) -> Result<TokenStream> {
 						s == &ID && *v < #versions
 					}) {
 						let params = #crate_::CallApiAtParams::<_, fn() -> _, _> {
-							at,
+							call_at,
 							function: #old_names,
 							native_call: None,
 							arguments: args,
@@ -419,7 +424,7 @@ fn generate_call_api_at_calls(decl: &ItemTrait) -> Result<TokenStream> {
 				)*
 
 				let params = #crate_::CallApiAtParams {
-					at,
+					call_at,
 					function: #trait_fn_name,
 					native_call,
 					arguments: args,
@@ -500,7 +505,7 @@ fn generate_runtime_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 
 /// Modify the given runtime api declaration to be usable on the client side.
 struct ToClientSideDecl<'a> {
-	block_id: &'a TokenStream,
+	call_at: &'a TokenStream,
 	crate_: &'a TokenStream,
 	found_attributes: &'a mut HashMap<&'static str, Attribute>,
 	/// Any error that we found while converting this declaration.
@@ -583,14 +588,14 @@ impl<'a> ToClientSideDecl<'a> {
 				},
 			};
 		let name = generate_method_runtime_api_impl_name(self.trait_, &method.sig.ident);
-		let block_id = self.block_id;
+		let block_id = self.call_at;
 		let crate_ = self.crate_;
 
 		Some(parse_quote! {
 			#[doc(hidden)]
 			fn #name(
 				&self,
-				at: &#block_id,
+				at: #block_id,
 				context: #crate_::ExecutionContext,
 				params: Option<( #( #param_types ),* )>,
 				params_encoded: Vec<u8>,
@@ -619,7 +624,7 @@ impl<'a> ToClientSideDecl<'a> {
 		let params2 = params.clone();
 		let ret_type = return_type_extract_type(&method.sig.output);
 
-		fold_fn_decl_for_client_side(&mut method.sig, self.block_id, self.crate_);
+		fold_fn_decl_for_client_side(&mut method.sig, self.call_at, self.crate_);
 
 		let name_impl = generate_method_runtime_api_impl_name(self.trait_, &method.sig.ident);
 		let crate_ = self.crate_;
@@ -816,7 +821,7 @@ fn generate_client_side_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 		let decl = decl.clone();
 
 		let crate_ = generate_crate_access(HIDDEN_INCLUDES_ID);
-		let block_id = quote!( #crate_::BlockId<Block> );
+		let call_at = quote!( #crate_::CallAt<Block> );
 		let mut found_attributes = HashMap::new();
 		let mut errors = Vec::new();
 		let trait_ = decl.ident.clone();
@@ -824,7 +829,7 @@ fn generate_client_side_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 		let decl = {
 			let mut to_client_side = ToClientSideDecl {
 				crate_: &crate_,
-				block_id: &block_id,
+				call_at: &call_at,
 				found_attributes: &mut found_attributes,
 				errors: &mut errors,
 				trait_: &trait_,

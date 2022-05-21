@@ -85,7 +85,8 @@ where
 	C::Api: AuraApi<B, A>,
 {
 	let best_block_id = BlockId::Hash(client.usage_info().chain.best_hash);
-	client.runtime_api().slot_duration(&best_block_id).map_err(|err| err.into())
+	// FIXME
+	client.runtime_api().slot_duration(best_block_id.into()).map_err(|err| err.into())
 }
 
 /// Get slot author for given block along with authorities.
@@ -551,7 +552,8 @@ where
 {
 	client
 		.runtime_api()
-		.authorities(at)
+		// FIXME
+		.authorities(at.into())
 		.ok()
 		.ok_or(sp_consensus::Error::InvalidAuthoritiesSet)
 }

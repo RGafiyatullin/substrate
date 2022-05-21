@@ -229,7 +229,8 @@ where
 			sp_tracing::Level::TRACE, "runtime::validate_transaction";
 		{
 			if api_version >= 3 {
-				runtime_api.validate_transaction(at, source, uxt, block_hash)
+				// FIXME
+				runtime_api.validate_transaction(at.into(), source, uxt, block_hash)
 					.map_err(|e| Error::RuntimeApi(e.to_string()))
 			} else {
 				let block_number = client.to_number(at)
@@ -239,7 +240,7 @@ where
 					)?;
 
 				// The old versions require us to call `initialize_block` before.
-				runtime_api.initialize_block(at, &sp_runtime::traits::Header::new(
+				runtime_api.initialize_block(at.into(), &sp_runtime::traits::Header::new(
 					block_number + sp_runtime::traits::One::one(),
 					Default::default(),
 					Default::default(),
@@ -248,12 +249,14 @@ where
 				).map_err(|e| Error::RuntimeApi(e.to_string()))?;
 
 				if api_version == 2 {
+					// FIXME
 					#[allow(deprecated)] // old validate_transaction
-					runtime_api.validate_transaction_before_version_3(at, source, uxt)
+					runtime_api.validate_transaction_before_version_3(at.into(), source, uxt)
 						.map_err(|e| Error::RuntimeApi(e.to_string()))
 				} else {
+					// FIXME
 					#[allow(deprecated)] // old validate_transaction
-					runtime_api.validate_transaction_before_version_2(at, uxt)
+					runtime_api.validate_transaction_before_version_2(at.into(), uxt)
 						.map_err(|e| Error::RuntimeApi(e.to_string()))
 				}
 			}

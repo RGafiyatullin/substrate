@@ -103,7 +103,8 @@ where
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 
-		let nonce = api.account_nonce(&at, account.clone()).map_err(|e| {
+		// FIXME
+		let nonce = api.account_nonce(at.into(), account.clone()).map_err(|e| {
 			CallError::Custom(ErrorObject::owned(
 				Error::RuntimeError.into(),
 				"Unable to query nonce.",
@@ -151,8 +152,9 @@ where
 			})?;
 
 		let result = if api_version < 6 {
+			// FIXME
 			#[allow(deprecated)]
-			api.apply_extrinsic_before_version_6(&at, uxt)
+			api.apply_extrinsic_before_version_6(at.into(), uxt)
 				.map(legacy::byte_sized_error::convert_to_latest)
 				.map_err(|e| {
 					CallError::Custom(ErrorObject::owned(
@@ -162,7 +164,8 @@ where
 					))
 				})?
 		} else {
-			api.apply_extrinsic(&at, uxt).map_err(|e| {
+			// FIXME
+			api.apply_extrinsic(at.into(), uxt).map_err(|e| {
 				CallError::Custom(ErrorObject::owned(
 					Error::RuntimeError.into(),
 					"Unable to dry run extrinsic.",

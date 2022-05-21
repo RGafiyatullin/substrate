@@ -480,7 +480,8 @@ where
 			.finality_notification_stream()
 			.take_while(|notif| {
 				let at = BlockId::hash(notif.header.hash());
-				if let Some(active) = self.runtime.runtime_api().validator_set(&at).ok().flatten() {
+				// FIXME
+				if let Some(active) = self.runtime.runtime_api().validator_set(at.into()).ok().flatten() {
 					if active.id() == GENESIS_AUTHORITY_SET_ID {
 						// When starting from genesis, there is no session boundary digest.
 						// Just initialize `rounds` to Block #1 as BEEFY mandatory block.
@@ -576,7 +577,8 @@ where
 		find_mmr_root_digest::<B>(header).or_else(|| {
 			self.runtime
 				.runtime_api()
-				.mmr_root(&BlockId::hash(header.hash()))
+				// FIXME
+				.mmr_root(BlockId::hash(header.hash()).into())
 				.ok()
 				.and_then(|r| r.ok())
 		})

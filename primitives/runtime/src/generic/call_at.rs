@@ -33,3 +33,16 @@ impl<Block: BlockT> fmt::Display for CallAt<Block> {
 }
 
 impl<Block: BlockT> Copy for CallAt<Block> {}
+
+// FIXME transient thing
+impl<Block: BlockT> From<&BlockId<Block>> for CallAt<Block> {
+	fn from(block_id: &BlockId<Block>) -> Self {
+		Self::At(*block_id)
+	}
+}
+// FIXME transient thing
+impl<Block: BlockT> From<BlockId<Block>> for CallAt<Block> {
+	fn from(block_id: BlockId<Block>) -> Self {
+		Self::At(block_id)
+	}
+}

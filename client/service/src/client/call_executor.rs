@@ -26,7 +26,7 @@ use sp_core::{
 	NativeOrEncoded, NeverNativeValue,
 };
 use sp_externalities::Extensions;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::{generic::{BlockId, CallAt}, traits::Block as BlockT};
 use sp_state_machine::{
 	self, backend::Backend as _, ExecutionManager, ExecutionStrategy, Ext, OverlayedChanges,
 	StateMachine, StorageProof,
@@ -192,7 +192,7 @@ where
 		NC: FnOnce() -> result::Result<R, sp_api::ApiError> + UnwindSafe,
 	>(
 		&self,
-		at: &BlockId<Block>,
+		call_at: CallAt<Block>,
 		method: &str,
 		call_data: &[u8],
 		changes: &RefCell<OverlayedChanges>,
@@ -205,15 +205,17 @@ where
 	where
 		ExecutionManager<EM>: Clone,
 	{
-		eprintln!("CallExecutor::contextual_call [at: {}; method: {:?}; data-len: {:?}]", at, method, call_data.len());
+		eprintln!("CallExecutor::contextual_call [call_at: {}; method: {:?}; data-len: {:?}]", call_at, method, call_data.len());
+
+		let at = call_at.block_id();
 
 		let mut storage_transaction_cache = storage_transaction_cache.map(|c| c.borrow_mut());
 
-		let state = self.backend.state_at(*at)?;
+		let state = self.backend.state_at(at)?;
 
 		let changes = &mut *changes.borrow_mut();
 
-		let at_hash = self.backend.blockchain().block_hash_from_id(at)?.ok_or_else(|| {
+		let at_hash = self.backend.blockchain().block_hash_from_id(&at)?.ok_or_else(|| {
 			sp_blockchain::Error::UnknownBlock(format!("Could not find block hash for {:?}", at))
 		})?;
 
@@ -224,7 +226,7 @@ where
 
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
-		let runtime_code = self.check_override(runtime_code, at)?;
+		let runtime_code = self.check_override(runtime_code, &at)?;
 
 		match recorder {
 			Some(recorder) => {

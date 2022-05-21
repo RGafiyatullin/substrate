@@ -227,7 +227,8 @@ where
 			storage_deposit_limit.map(|l| decode_hex(l, "balance")).transpose()?;
 		limit_gas(gas_limit)?;
 
-		api.call(&at, origin, dest, value, gas_limit, storage_deposit_limit, input_data.to_vec())
+		// FIXME
+		api.call(at.into(), origin, dest, value, gas_limit, storage_deposit_limit, input_data.to_vec())
 			.map_err(runtime_error_into_rpc_err)
 	}
 
@@ -258,7 +259,8 @@ where
 		limit_gas(gas_limit)?;
 
 		api.instantiate(
-			&at,
+			// FIXME
+			at.into(),
 			origin,
 			value,
 			gas_limit,
@@ -285,7 +287,8 @@ where
 		let storage_deposit_limit: Option<Balance> =
 			storage_deposit_limit.map(|l| decode_hex(l, "balance")).transpose()?;
 
-		api.upload_code(&at, origin, code.to_vec(), storage_deposit_limit)
+		// FIXME
+		api.upload_code(at.into(), origin, code.to_vec(), storage_deposit_limit)
 			.map_err(runtime_error_into_rpc_err)
 	}
 
@@ -298,7 +301,8 @@ where
 		let api = self.client.runtime_api();
 		let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 		let result = api
-			.get_storage(&at, address, key.into())
+			// FIXME
+			.get_storage(at.into(), address, key.into())
 			.map_err(runtime_error_into_rpc_err)?
 			.map_err(ContractAccessError)?
 			.map(Bytes);

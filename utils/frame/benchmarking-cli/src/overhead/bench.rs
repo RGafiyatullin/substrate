@@ -159,7 +159,8 @@ where
 		for _ in 0..self.params.warmup {
 			self.client
 				.runtime_api()
-				.execute_block(&genesis, block.clone())
+				// FIXME
+				.execute_block(genesis.into(), block.clone())
 				.map_err(|e| Error::Client(RuntimeApiError(e)))?;
 		}
 
@@ -172,7 +173,8 @@ where
 			let start = Instant::now();
 
 			runtime_api
-				.execute_block(&genesis, block)
+				// FIXME
+				.execute_block(genesis.into(), block)
 				.map_err(|e| Error::Client(RuntimeApiError(e)))?;
 
 			let elapsed = start.elapsed().as_nanos();
