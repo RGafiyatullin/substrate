@@ -126,6 +126,12 @@ pub struct ProofRecorder<Hash> {
 	inner: Arc<RwLock<ProofRecorderInner<Hash>>>,
 }
 
+impl<Hash> ProofRecorder<Hash> {
+	pub fn transaction_begin(&self) {}
+	pub fn transaction_commit(&self) {}
+	pub fn transaction_rollback(&self) {}
+}
+
 impl<Hash: std::hash::Hash + Eq> ProofRecorder<Hash> {
 	/// Record the given `key` => `val` combination.
 	pub fn record(&self, key: Hash, val: Option<DBValue>) {
@@ -607,5 +613,64 @@ mod tests {
 		let proof2 = proof_recorder.to_storage_proof();
 
 		assert_eq!(proof1, proof2);
+	}
+
+
+	#[test]
+	fn proof_recorder_usage() {
+		let to_include = &[
+			(H256::random(), Some(b"value1".to_vec())),
+			(H256::random(), Some(b"value2".to_vec())),
+			(H256::random(), Some(b"value3".to_vec())),
+			(H256::random(), Some(b"value4".to_vec())),
+			(H256::random(), Some(b"value5".to_vec())),
+			(H256::random(), Some(b"value6".to_vec())),
+			(H256::random(), Some(b"value7".to_vec())),
+		];
+
+		let to_discard = &[
+			(to_include[3].0, Some(b"value4...".to_vec())),
+			(to_include[4].0, Some(b"value5...".to_vec())),
+			(to_include[5].0, Some(b"value6...".to_vec())),
+		];
+
+		let mut proofs = Vec::new();
+
+		for slice_at in 0..to_include.len() {
+			let to_include_before = &to_include[..slice_at];
+			let to_include_after = &to_include[slice_at..];
+
+			let proof_recorder: ProofRecorder<H256> = Default::default();
+
+			proof_recorder.transaction_begin();
+			for (key, val) in to_include_before { 
+				proof_recorder.record(key.to_owned(), val.to_owned());
+			}
+			proof_recorder.transaction_commit();
+
+			proof_recorder.transaction_begin();
+			for (key, val) in to_discard { 
+				proof_recorder.record(key.to_owned(), val.to_owned());
+			}
+			proof_recorder.transaction_rollback();
+
+			proof_recorder.transaction_begin();
+			for (key, val) in to_include_after { 
+				proof_recorder.record(key.to_owned(), val.to_owned());
+			}
+			proof_recorder.transaction_rollback();
+
+			let proof = proof_recorder.to_storage_proof();
+
+			proofs.push(proof);
+		}
+
+		for (idx, proof) in proofs.iter().enumerate() {
+			eprintln!("{} => {:?}", idx, proof);
+		}
+
+		proofs.iter().reduce(|left, right| { assert_eq!(left, right); left });
+
+		
 	}
 }
