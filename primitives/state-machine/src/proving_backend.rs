@@ -169,7 +169,7 @@ impl<Hash: std::hash::Hash + Eq> ProofRecorder<Hash> {
 				.read()
 				.records
 				.iter()
-				.filter_map(|(_k, v)| v.as_ref().map(|v| v.to_vec())),
+				.filter_map(|(_k, v)| v.to_owned()),
 		)
 	}
 
@@ -672,5 +672,22 @@ mod tests {
 		proofs.iter().reduce(|left, right| { assert_eq!(left, right); left });
 
 		
+	}
+
+	#[test]
+	fn proof_recorder_respects_values_only() {
+		let proof_1 = {
+			let proof_recorder: ProofRecorder::<H256> = Default::default();
+			proof_recorder.record(H256::random(), Some(b"123123".to_vec()));
+			proof_recorder.to_storage_proof()
+		};
+
+		let proof_2 = {
+			let proof_recorder: ProofRecorder::<H256> = Default::default();
+			proof_recorder.record(H256::random(), Some(b"123123".to_vec()));
+			proof_recorder.to_storage_proof()
+		};
+
+		assert_eq!(proof_1, proof_2)
 	}
 }
