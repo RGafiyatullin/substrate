@@ -100,6 +100,9 @@ pub struct NetworkParams {
 	#[clap(long)]
 	pub no_mdns: bool,
 
+	#[clap(long)]
+	pub persist_peers: bool,
+
 	/// Maximum number of peers from which to ask for the same blocks in parallel.
 	///
 	/// This allows downloading announced blocks from multiple peers. Decrease to save
@@ -209,6 +212,7 @@ impl NetworkParams {
 		};
 
 		NetworkConfiguration {
+			persist_peers: self.persist_peers,
 			boot_nodes,
 			net_config_path,
 			default_peers_set: SetConfig {

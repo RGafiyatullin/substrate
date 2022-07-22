@@ -18,6 +18,7 @@
 
 use crate::{
 	config, error,
+	persist_peers::PersistPeers,
 	request_responses::RequestFailure,
 	utils::{interval, LruHashSet},
 };
@@ -163,6 +164,8 @@ impl Metrics {
 
 // Lock must always be taken in order declared here.
 pub struct Protocol<B: BlockT, Client> {
+	persist_peers: PersistPeers,
+
 	/// Interval at which we call `tick`.
 	tick_timeout: Pin<Box<dyn Stream<Item = ()> + Send>>,
 	/// Pending list of messages to return from `poll` as a priority.
@@ -277,6 +280,11 @@ where
 		metrics_registry: Option<&Registry>,
 		chain_sync: Box<dyn ChainSync<B>>,
 	) -> error::Result<(Self, sc_peerset::PeersetHandle, Vec<(PeerId, Multiaddr)>)> {
+		eprintln!(
+			"!!! sc-network::Protocol::new(...) [persist-peers: {:?}; net-config-path: {:?}]",
+			network_config.persist_peers, network_config.net_config_path
+		);
+
 		let info = chain.info();
 
 		let boot_node_ids = {
@@ -395,7 +403,13 @@ where
 				network_config.default_peers_set.out_peers as usize,
 		);
 
+		let persist_peers = PersistPeers::init(
+			network_config.persist_peers,
+			network_config.net_config_path.as_ref().map(AsRef::as_ref),
+		);
+
 		let protocol = Self {
+			persist_peers,
 			tick_timeout: Box::pin(interval(TICK_TIMEOUT)),
 			pending_messages: VecDeque::new(),
 			roles,
@@ -536,6 +550,8 @@ where
 		}
 
 		if let Some(_peer_data) = self.peers.remove(&peer) {
+			self.persist_peers.on_sync_peer_disconnected(&peer);
+
 			if let Some(OnBlockData::Import(origin, blocks)) =
 				self.chain_sync.peer_disconnected(&peer)
 			{
@@ -765,6 +781,8 @@ where
 		};
 
 		debug!(target: "sync", "Connected {}", who);
+
+		self.persist_peers.on_sync_peer_connected(&who);
 
 		self.peers.insert(who, peer);
 		self.pending_messages

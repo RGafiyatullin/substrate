@@ -396,6 +396,8 @@ impl Default for SyncMode {
 /// Network service configuration.
 #[derive(Clone, Debug)]
 pub struct NetworkConfiguration {
+	pub persist_peers: bool,
+
 	/// Directory path to store network-specific configuration. None means nothing will be saved.
 	pub net_config_path: Option<PathBuf>,
 	/// Multiaddresses to listen for incoming connections.
@@ -474,6 +476,7 @@ impl NetworkConfiguration {
 	) -> Self {
 		let default_peers_set = SetConfig::default();
 		Self {
+			persist_peers: false,
 			net_config_path,
 			listen_addresses: Vec::new(),
 			public_addresses: Vec::new(),
