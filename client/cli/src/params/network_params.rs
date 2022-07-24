@@ -145,6 +145,10 @@ pub struct NetworkParams {
 		verbatim_doc_comment
 	)]
 	pub sync: SyncMode,
+
+	/// Enable persisting peers between the node restarts.
+	#[clap(long)]
+	pub persist_peers: bool,
 }
 
 impl NetworkParams {
@@ -209,6 +213,7 @@ impl NetworkParams {
 		};
 
 		NetworkConfiguration {
+			persist_peers: self.persist_peers,
 			boot_nodes,
 			net_config_path,
 			default_peers_set: SetConfig {
