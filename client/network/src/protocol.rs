@@ -550,8 +550,6 @@ where
 		}
 
 		if let Some(_peer_data) = self.peers.remove(&peer) {
-			self.persist_peers.on_sync_peer_disconnected(&peer);
-
 			if let Some(OnBlockData::Import(origin, blocks)) =
 				self.chain_sync.peer_disconnected(&peer)
 			{
@@ -781,8 +779,6 @@ where
 		};
 
 		debug!(target: "sync", "Connected {}", who);
-
-		self.persist_peers.on_sync_peer_connected(&who);
 
 		self.peers.insert(who, peer);
 		self.pending_messages
@@ -1326,6 +1322,13 @@ where
 		failed_addresses: Option<&Vec<Multiaddr>>,
 		other_established: usize,
 	) {
+		use libp2p::core::Endpoint;
+
+		if let ConnectedPoint::Dialer { address, role_override: Endpoint::Dialer } = &endpoint {
+			// eprintln!("[peer-id: {:?}; address: {:?}; role-override: {:?}]", peer_id, address, role_override);
+			self.persist_peers.on_connected(*conn, peer_id, address);
+		}
+		
 		self.behaviour.inject_connection_established(
 			peer_id,
 			conn,
@@ -1343,6 +1346,7 @@ where
 		handler: <Self::ConnectionHandler as IntoConnectionHandler>::Handler,
 		remaining_established: usize,
 	) {
+		self.persist_peers.on_disconnected(*conn, peer_id);
 		self.behaviour.inject_connection_closed(
 			peer_id,
 			conn,
@@ -1366,6 +1370,8 @@ where
 		cx: &mut std::task::Context,
 		params: &mut impl PollParameters,
 	) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>> {
+		let _ = self.persist_peers.poll(cx);
+
 		if let Some(message) = self.pending_messages.pop_front() {
 			return Poll::Ready(NetworkBehaviourAction::GenerateEvent(message))
 		}
