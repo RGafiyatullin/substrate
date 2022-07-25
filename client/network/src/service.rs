@@ -323,16 +323,6 @@ where
 					params.network_config.kademlia_disjoint_query_paths,
 				);
 
-				if params.network_config.persist_peers {
-					config.with_known_addresses_cache_path(
-						params.network_config.net_config_path.as_ref().map(|dir| {
-							let mut p = dir.to_owned();
-							p.push("known-addresses.json");
-							p
-						}),
-					);
-				}
-
 				match params.network_config.transport {
 					TransportConfig::MemoryOnly => {
 						config.with_mdns(false);

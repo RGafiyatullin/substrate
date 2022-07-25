@@ -253,6 +253,7 @@ mod schema;
 mod service;
 mod transport;
 mod utils;
+mod known_addresses_persistence;
 
 pub mod bitswap;
 pub mod config;
