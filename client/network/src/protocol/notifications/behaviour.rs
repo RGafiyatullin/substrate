@@ -604,6 +604,11 @@ impl Notifications {
 
 	/// Function that is called when the peerset wants us to connect to a peer.
 	fn peerset_report_connect(&mut self, peer_id: PeerId, set_id: sc_peerset::SetId) {
+		eprintln!(
+			"!!! Notifications::preset_report_connect [peer_id: {:?}; set_id: {:?}]",
+			peer_id, set_id
+		);
+
 		// If `PeerId` is unknown to us, insert an entry, start dialing, and return early.
 		let handler = self.new_handler();
 		let mut occ_entry = match self.peers.entry((peer_id, set_id)) {
@@ -1057,7 +1062,11 @@ impl NetworkBehaviour for Notifications {
 		NotifsHandlerProto::new(self.notif_protocols.clone())
 	}
 
-	fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {
+	fn addresses_of_peer(&mut self, _peer_id: &PeerId) -> Vec<Multiaddr> {
+		eprintln!(
+			"!!! <Notifications as NetworkBehaviour>::addresses_of_peer [peer_id: {:?}]",
+			_peer_id
+		);
 		Vec::new()
 	}
 

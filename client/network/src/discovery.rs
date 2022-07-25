@@ -79,14 +79,16 @@ use std::{
 	collections::{HashMap, HashSet, VecDeque},
 	io,
 	num::NonZeroUsize,
+	path::PathBuf,
 	task::{Context, Poll},
 	time::Duration,
 };
 
-/// Maximum number of known external addresses that we will cache.
-/// This only affects whether we will log whenever we (re-)discover
-/// a given address.
-const MAX_KNOWN_EXTERNAL_ADDRESSES: usize = 32;
+mod known_addresses_persistence;
+use known_addresses_persistence::KnownAddressesPersistence;
+
+/// Default external addresses cache size.
+const DEFAULT_KNOWN_EXTERNAL_ADDRESSES_CACHE_SIZE: usize = 32;
 
 /// `DiscoveryBehaviour` configuration.
 ///
@@ -102,6 +104,8 @@ pub struct DiscoveryConfig {
 	enable_mdns: bool,
 	kademlia_disjoint_query_paths: bool,
 	protocol_ids: HashSet<ProtocolId>,
+	known_addresses_cache_size: usize,
+	known_addresses_cache_path: Option<PathBuf>,
 }
 
 impl DiscoveryConfig {
@@ -117,7 +121,23 @@ impl DiscoveryConfig {
 			enable_mdns: false,
 			kademlia_disjoint_query_paths: false,
 			protocol_ids: HashSet::new(),
+			known_addresses_cache_size: DEFAULT_KNOWN_EXTERNAL_ADDRESSES_CACHE_SIZE,
+			known_addresses_cache_path: None,
 		}
+	}
+
+	// Set the size of known addresses cache.
+	pub fn known_addresses_cache_size(&mut self, cache_size: usize) -> &mut Self {
+		self.known_addresses_cache_size = cache_size;
+		self
+	}
+
+	pub fn with_known_addresses_cache_path<P: Into<PathBuf>>(
+		&mut self,
+		path: Option<P>,
+	) -> &mut Self {
+		self.known_addresses_cache_path = path.map(Into::into);
+		self
 	}
 
 	/// Set the number of active connections at which we pause discovery.
@@ -191,6 +211,8 @@ impl DiscoveryConfig {
 			enable_mdns,
 			kademlia_disjoint_query_paths,
 			protocol_ids,
+			known_addresses_cache_size,
+			known_addresses_cache_path,
 		} = self;
 
 		let kademlias = protocol_ids
@@ -217,6 +239,24 @@ impl DiscoveryConfig {
 			})
 			.collect();
 
+		let known_external_addresses_persistence =
+			KnownAddressesPersistence::init(known_addresses_cache_path);
+		let known_external_addresses_restored = known_external_addresses_persistence.entries();
+
+		let known_external_addresses = if known_addresses_cache_size > 0 {
+			let mut set = LruHashSet::new(NonZeroUsize::new(known_addresses_cache_size).expect(
+				"We've just checked `known_addresses_cache_size` to be greater than zero. QED",
+			));
+
+			for addr in known_external_addresses_restored.into_iter().cloned() {
+				set.insert(addr);
+			}
+
+			Some(set)
+		} else {
+			None
+		};
+
 		DiscoveryBehaviour {
 			permanent_addresses,
 			ephemeral_addresses: HashMap::new(),
@@ -238,10 +278,8 @@ impl DiscoveryConfig {
 				MdnsWrapper::Disabled
 			},
 			allow_non_globals_in_dht,
-			known_external_addresses: LruHashSet::new(
-				NonZeroUsize::new(MAX_KNOWN_EXTERNAL_ADDRESSES)
-					.expect("value is a constant; constant is non-zero; qed."),
-			),
+			known_external_addresses,
+			known_external_addresses_persistence,
 		}
 	}
 }
@@ -276,8 +314,10 @@ pub struct DiscoveryBehaviour {
 	discovery_only_if_under_num: u64,
 	/// Should non-global addresses be added to the DHT?
 	allow_non_globals_in_dht: bool,
-	/// A cache of discovered external addresses. Only used for logging purposes.
-	known_external_addresses: LruHashSet<Multiaddr>,
+	/// A cache of discovered external addresses.
+	known_external_addresses: Option<LruHashSet<Multiaddr>>,
+	/// Persistence for known_external_addresses cache
+	known_external_addresses_persistence: KnownAddressesPersistence,
 }
 
 impl DiscoveryBehaviour {
@@ -517,6 +557,8 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 	}
 
 	fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
+		eprintln!("!!! <DiscoveryBehaviour as NetworkBehaviour>::addresses_of_peer [peer_id: {:?}; allow_private_ipv4: {:?}]", peer_id, self.allow_private_ipv4);
+
 		let mut list = self
 			.permanent_addresses
 			.iter()
@@ -648,14 +690,19 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 		let new_addr = addr.clone().with(Protocol::P2p(self.local_peer_id.into()));
 
 		if self.can_add_to_dht(addr) {
+			// FIXME: the following explanation does not entirely cover the purpose of
+			// `known_external_addresses` anymore.
+			//
 			// NOTE: we might re-discover the same address multiple times
 			// in which case we just want to refrain from logging.
-			if self.known_external_addresses.insert(new_addr.clone()) {
-				info!(
-					target: "sub-libp2p",
-					"🔍 Discovered new external address for our node: {}",
-					new_addr,
-				);
+			if let Some(known_external_addresses) = self.known_external_addresses.as_mut() {
+				if known_external_addresses.insert(new_addr.clone()) {
+					info!(
+						target: "sub-libp2p",
+						"🔍 Discovered new external address for our node: {}",
+						new_addr,
+					);
+				}
 			}
 		}
 
@@ -716,6 +763,9 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 		if let Some(ev) = self.pending_events.pop_front() {
 			return Poll::Ready(NetworkBehaviourAction::GenerateEvent(ev))
 		}
+
+		self.known_external_addresses_persistence
+			.poll(cx, self.known_external_addresses.iter().map(AsRef::as_ref).flatten());
 
 		// Poll the stream that fires when we need to start a random Kademlia query.
 		if let Some(next_kad_random_query) = self.next_kad_random_query.as_mut() {
