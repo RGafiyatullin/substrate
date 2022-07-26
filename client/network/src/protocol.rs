@@ -1297,6 +1297,7 @@ where
 	}
 
 	fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
+		eprintln!("<Protocol as NetworkBehaviour>::addresses_of_peer [peer_id: {:?}]", peer_id);
 		self.behaviour.addresses_of_peer(peer_id)
 	}
 
@@ -1308,6 +1309,9 @@ where
 		failed_addresses: Option<&Vec<Multiaddr>>,
 		other_established: usize,
 	) {
+		eprintln!("<Protocol as NetworkBehaviour>::inject_connection_established [peer_id: {:?}; conn_id: {:?}; endpoint: {:?}]", 
+			peer_id, conn, endpoint);
+
 		self.behaviour.inject_connection_established(
 			peer_id,
 			conn,
@@ -1325,6 +1329,9 @@ where
 		handler: <Self::ConnectionHandler as IntoConnectionHandler>::Handler,
 		remaining_established: usize,
 	) {
+		eprintln!("<Protocol as NetworkBehaviour>::inject_connection_closed [peer_id: {:?}, conn_id: {:?}; endpoint: {:?}; remaining_establishd: {:?}]", 
+			peer_id, conn, endpoint, remaining_established);
+
 		self.behaviour.inject_connection_closed(
 			peer_id,
 			conn,
@@ -1340,6 +1347,8 @@ where
 		connection: ConnectionId,
 		event: <<Self::ConnectionHandler as IntoConnectionHandler>::Handler as ConnectionHandler>::OutEvent,
 	) {
+		eprintln!("<Protocol as NetworkBehaviour>::inject_event [peer_id: {:?}; conn_id: {:?}; event: {:?}]", peer_id, connection, event);
+
 		self.behaviour.inject_event(peer_id, connection, event)
 	}
 

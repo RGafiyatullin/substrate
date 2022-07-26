@@ -17,7 +17,7 @@ use crate::Multiaddr;
 const MIN_WRITE_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(Debug)]
-pub(super) enum KnownAddressesPersistence {
+pub(super) enum PeerAddressesPersistence {
 	Disabled,
 	Enabled(Enabled),
 }
@@ -34,7 +34,7 @@ pub(super) struct Enabled {
 	busy: Option<BusyFutureBoxed>,
 }
 
-impl KnownAddressesPersistence {
+impl PeerAddressesPersistence {
 	pub fn init<P: AsRef<Path>>(path: Option<P>) -> Self {
 		if let Some(path) = path {
 			let entries = if let Ok(file_ro) = std::fs::OpenOptions::new().read(true).open(&path) {
