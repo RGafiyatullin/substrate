@@ -18,6 +18,7 @@
 
 use crate::{
 	config, error,
+	persist_peers::{self, PersistPeersets},
 	request_responses::RequestFailure,
 	utils::{interval, LruHashSet},
 };
@@ -202,6 +203,8 @@ pub struct Protocol<B: BlockT, Client> {
 	boot_node_ids: HashSet<PeerId>,
 	/// A cache for the data that was associated to a block announcement.
 	block_announce_data_cache: lru::LruCache<B::Hash, Vec<u8>>,
+
+	persist_peersets: Option<PersistPeersets>,
 }
 
 #[derive(Debug)]
@@ -307,6 +310,15 @@ where
 		let mut known_addresses = Vec::new();
 
 		let (peerset, peerset_handle) = {
+			if let Some(loaded_peersets) = network_config
+				.net_config_path
+				.as_ref()
+				.map(persist_peers::load_peersets)
+				.transpose()?
+			{
+				log::warn!("Restoring peersets: not implemented");
+			}
+
 			let mut sets =
 				Vec::with_capacity(NUM_HARDCODED_PEERSETS + network_config.extra_sets.len());
 
@@ -395,6 +407,12 @@ where
 				network_config.default_peers_set.out_peers as usize,
 		);
 
+		let persist_peersets = network_config
+			.net_config_path
+			.as_ref()
+			.filter(|_| network_config.persist_peers)
+			.map(|p| PersistPeersets::new(p, peerset_handle.to_owned()));
+
 		let protocol = Self {
 			tick_timeout: Box::pin(interval(TICK_TIMEOUT)),
 			pending_messages: VecDeque::new(),
@@ -425,6 +443,7 @@ where
 			},
 			boot_node_ids,
 			block_announce_data_cache,
+			persist_peersets,
 		};
 
 		Ok((protocol, peerset_handle, known_addresses))
@@ -1357,6 +1376,10 @@ where
 		cx: &mut std::task::Context,
 		params: &mut impl PollParameters,
 	) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>> {
+		if let Some(persist_peersets) = self.persist_peersets.as_mut() {
+			let _ = persist_peersets.poll(cx);
+		}
+
 		if let Some(message) = self.pending_messages.pop_front() {
 			return Poll::Ready(NetworkBehaviourAction::GenerateEvent(message))
 		}

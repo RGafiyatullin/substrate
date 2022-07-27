@@ -246,8 +246,9 @@
 
 mod behaviour;
 mod discovery;
-mod peer_addresses_persistence;
+// mod peer_addresses_persistence;
 mod peer_info;
+mod persist_peers;
 mod protocol;
 mod request_responses;
 mod schema;
