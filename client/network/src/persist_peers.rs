@@ -1,4 +1,5 @@
 use std::{
+	collections::HashSet,
 	fmt,
 	future::Future,
 	io,
@@ -22,31 +23,126 @@ type Never = std::convert::Infallible;
 const FLUSH_INTERVAL: Duration = Duration::from_secs(5);
 const PEER_ADDRS_CACHE_SIZE: usize = 100;
 
-// #[derive(Debug)]
-// pub struct PersistPeerAddrs {
-// 	paths: Arc<Paths>,
-// 	flush_valve: FlushValve,
-// 	entries: LruCache<PeerId, Vec<Multiaddr>>,
-// }
+pub struct PersistPeerAddrs {
+	paths: Arc<Paths>,
+	flushed_at: Instant,
+	entries: LruCache<PeerId, HashSet<Multiaddr>>,
+	busy: Option<BoxedFuture<Result<(), io::Error>>>,
+}
 
-// impl PersistPeerAddrs {
-// 	pub fn new(dir: impl AsRef<Path>) -> Self {
-// 		let paths = Paths::new(dir, "peer-sets");
-// 		Self {
-// 			paths: Arc::new(paths),
-// 			flush_valve: FlushValve::new(MIN_FLUSH_INTERVAL),
-// 			entries: LruCache::new(PEER_ADDRS_CACHE_SIZE),
-// 		}
-// 	}
+impl PersistPeerAddrs {
+	pub fn load(dir: impl AsRef<Path>) -> Self {
+		let paths = Paths::new(dir, "peer-sets");
 
-// 	pub fn report_peer_addrs(&mut self, peer_id: &PeerId, addrs: &[Multiaddr]) {
-// 		let addrs = addrs.into_iter().cloned().collect::<Vec<_>>();
-// 		self.entries.push(peer_id.to_owned(), addrs);
-// 		self.flush_valve.report_change();
-// 	}
-// }
+		let entries = match persist_peer_addrs::load(&paths.path) {
+			Ok(restored) => restored,
+			Err(reason) => {
+				log::warn!("Failed to load peer addresses: {:?}", reason);
+				vec![]
+			},
+		};
+
+		let entries = entries.into_iter().rev().fold(
+			LruCache::new(PEER_ADDRS_CACHE_SIZE),
+			|mut acc, persist_peer_addrs::PeerEntry { peer_id, addrs }| {
+				if let Ok(peer_id) = peer_id.parse() {
+					acc.push(peer_id, addrs.into_iter().collect::<HashSet<_>>());
+				}
+				acc
+			},
+		);
+
+		Self { paths: Arc::new(paths), flushed_at: Instant::now(), entries, busy: None }
+	}
+
+	pub fn report_peer_addr(&mut self, peer_id: &PeerId, addr: &Multiaddr) {
+		if let Some(peer_addrs) = self.entries.get_mut(peer_id) {
+			peer_addrs.insert(addr.to_owned());
+		} else {
+			self.entries.push(peer_id.to_owned(), [addr.to_owned()].into_iter().collect());
+		}
+	}
+
+	pub fn peer_addrs(&mut self, peer_id: &PeerId) -> impl Iterator<Item = &Multiaddr> {
+		self.entries.get(peer_id).map(IntoIterator::into_iter).into_iter().flatten()
+	}
+
+	pub fn poll(&mut self, cx: &mut Context) -> Poll<Never> {
+		if let Some(busy_future) = self.busy.as_mut() {
+			if let Poll::Ready(result) = busy_future.poll_unpin(cx) {
+				self.busy = None;
+				self.flushed_at = Instant::now();
+
+				if let Err(reason) = result {
+					log::warn!("Failed to persist peer addresses: {}", reason);
+				}
+			}
+		} else if self.flushed_at.elapsed() > FLUSH_INTERVAL {
+			let entries = self
+				.entries
+				.iter()
+				.map(|(peer_id, addrs)| {
+					let peer_id = peer_id.to_base58();
+					let addrs = addrs.into_iter().cloned().collect();
+
+					persist_peer_addrs::PeerEntry { peer_id, addrs }
+				})
+				.collect::<Vec<_>>();
+
+			let busy_future = persist_peer_addrs::persist(Arc::clone(&self.paths), entries).boxed();
+			self.busy = Some(busy_future);
+		}
+		Poll::Pending
+	}
+}
+
+mod persist_peer_addrs {
+	use super::*;
+	use tokio::io::AsyncWriteExt;
+
+	#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+	pub(super) struct PeerEntry {
+		pub peer_id: String,
+		pub addrs: Vec<Multiaddr>,
+	}
+
+	pub(super) async fn persist(
+		paths: Arc<Paths>,
+		entries: Vec<PeerEntry>,
+	) -> Result<(), io::Error> {
+		let mut tmp_file = tokio::fs::OpenOptions::new()
+			.create(true)
+			.write(true)
+			.open(&paths.tmp_path)
+			.await?;
+		let serialized = serde_json::to_vec_pretty(&entries)?;
+
+		tmp_file.write_all(&serialized).await?;
+		tmp_file.flush().await?;
+		std::mem::drop(tmp_file);
+
+		tokio::fs::rename(&paths.tmp_path, &paths.path).await?;
+
+		Ok(())
+	}
+
+	pub(super) fn load(path: impl AsRef<Path>) -> Result<Vec<PeerEntry>, io::Error> {
+		let file = match std::fs::OpenOptions::new().read(true).open(path) {
+			Ok(file) => file,
+			Err(not_found) if not_found.kind() == std::io::ErrorKind::NotFound => {
+				return Ok(Vec::new())
+			},
+			Err(reason) => {
+				return Err(reason)
+			},
+		};
+		let entries = serde_json::from_reader(file)?;
+		Ok(entries)
+	}
+}
 
 pub struct PersistPeersets(BoxedFuture<Never>);
+pub use peersets::load as peersets_load;
 
 impl PersistPeersets {
 	pub fn new(dir: impl AsRef<Path>, peerset_handle: PeersetHandle) -> Self {
@@ -57,7 +153,7 @@ impl PersistPeersets {
 
 			loop {
 				let _ = ticks.tick().await;
-				if let Err(reason) = persist_peersets(&paths, &peerset_handle).await {
+				if let Err(reason) = peersets::persist(&paths, &peerset_handle).await {
 					log::warn!("Error persisting peer sets: {}", reason);
 				}
 			}
@@ -65,32 +161,39 @@ impl PersistPeersets {
 		Self(busy_future.boxed())
 	}
 
-	pub fn poll(&mut self, cx: &mut Context) -> Poll<std::convert::Infallible> {
+	pub fn poll(&mut self, cx: &mut Context) -> Poll<Never> {
 		self.0.poll_unpin(cx)
 	}
 }
 
-impl fmt::Debug for PersistPeersets {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		f.debug_struct("PersistPeersets").finish()
+mod peersets {
+	use super::*;
+
+	pub(super) async fn persist(
+		paths: &Paths,
+		peerset_handle: &PeersetHandle,
+	) -> Result<(), io::Error> {
+		Err(io::Error::new(io::ErrorKind::Other, "Not implemented (persist peersets)"))
 	}
-}
 
-async fn persist_peersets(paths: &Paths, peerset_handle: &PeersetHandle) -> Result<(), io::Error> {
-	Err(io::Error::new(io::ErrorKind::Other, "Not implemented (persist peersets)"))
-}
+	pub fn load(dir: impl AsRef<Path>) -> Result<Vec<()>, io::Error> {
+		let mut path = dir.as_ref().to_owned();
+		path.push("peer-sets.json");
 
-pub fn load_peersets(dir: impl AsRef<Path>) -> Result<Vec<()>, io::Error> {
-	let mut path = dir.as_ref().to_owned();
-	path.push("peer-sets.json");
+		match std::fs::OpenOptions::new().read(true).open(&path) {
+			Ok(f) => {
+				let peersets = serde_json::from_reader(f)?;
+				Ok(peersets)
+			},
+			Err(not_found) if not_found.kind() == io::ErrorKind::NotFound => Ok(vec![]),
+			Err(reason) => Err(reason),
+		}
+	}
 
-	match std::fs::OpenOptions::new().read(true).open(&path) {
-		Ok(f) => {
-			let peersets = serde_json::from_reader(f)?;
-			Ok(peersets)
-		},
-		Err(not_found) if not_found.kind() == io::ErrorKind::NotFound => Ok(vec![]),
-		Err(reason) => Err(reason),
+	impl fmt::Debug for PersistPeersets {
+		fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+			f.debug_struct("PersistPeersets").finish()
+		}
 	}
 }
 

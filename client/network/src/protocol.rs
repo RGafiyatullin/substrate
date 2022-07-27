@@ -313,10 +313,10 @@ where
 			if let Some(loaded_peersets) = network_config
 				.net_config_path
 				.as_ref()
-				.map(persist_peers::load_peersets)
+				.map(persist_peers::peersets_load)
 				.transpose()?
 			{
-				log::warn!("Restoring peersets: not implemented");
+				log::warn!("Restoring peersets: not implemented [{:?}]", loaded_peersets);
 			}
 
 			let mut sets =
