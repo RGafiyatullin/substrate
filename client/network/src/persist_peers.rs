@@ -32,7 +32,7 @@ pub struct PersistPeerAddrs {
 
 impl PersistPeerAddrs {
 	pub fn load(dir: impl AsRef<Path>) -> Self {
-		let paths = Paths::new(dir, "peer-sets");
+		let paths = Paths::new(dir, "peer-addrs");
 
 		let entries = match persist_peer_addrs::load(&paths.path) {
 			Ok(restored) => restored,
@@ -127,14 +127,11 @@ mod persist_peer_addrs {
 	}
 
 	pub(super) fn load(path: impl AsRef<Path>) -> Result<Vec<PeerEntry>, io::Error> {
-		let file = match std::fs::OpenOptions::new().read(true).open(path) {
+		let file = match std::fs::OpenOptions::new().read(true).open(path.as_ref()) {
 			Ok(file) => file,
-			Err(not_found) if not_found.kind() == std::io::ErrorKind::NotFound => {
-				return Ok(Vec::new())
-			},
-			Err(reason) => {
-				return Err(reason)
-			},
+			Err(not_found) if not_found.kind() == std::io::ErrorKind::NotFound =>
+				return Ok(Vec::new()),
+			Err(reason) => return Err(reason),
 		};
 		let entries = serde_json::from_reader(file)?;
 		Ok(entries)
@@ -146,6 +143,8 @@ pub use peersets::load as peersets_load;
 
 impl PersistPeersets {
 	pub fn new(dir: impl AsRef<Path>, peerset_handle: PeersetHandle) -> Self {
+		eprintln!("!!! PersistPeersets::new");
+
 		let paths = Paths::new(dir, "peer-sets");
 		let busy_future = async move {
 			let mut ticks = tokio::time::interval(FLUSH_INTERVAL);
@@ -179,6 +178,8 @@ mod peersets {
 	pub fn load(dir: impl AsRef<Path>) -> Result<Vec<()>, io::Error> {
 		let mut path = dir.as_ref().to_owned();
 		path.push("peer-sets.json");
+
+		eprintln!("loading peersets from {:?}", path);
 
 		match std::fs::OpenOptions::new().read(true).open(&path) {
 			Ok(f) => {
