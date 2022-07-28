@@ -172,7 +172,22 @@ mod peersets {
 		paths: &Paths,
 		peerset_handle: &PeersetHandle,
 	) -> Result<(), io::Error> {
-		Err(io::Error::new(io::ErrorKind::Other, "Not implemented (persist peersets)"))
+		use tokio::io::AsyncWriteExt;
+
+		let peersets_dumped = peerset_handle
+			.dump_state()
+			.await
+			.map_err(|()| io::Error::new(io::ErrorKind::BrokenPipe, "oneshot channel failure"))?;
+
+		let mut tmp_file = tokio::fs::OpenOptions::new().create(true).write(true).open(&paths.tmp_path).await?;
+		let serialized = serde_json::to_vec_pretty(&peersets_dumped)?;
+		tmp_file.write_all(&serialized).await?;
+		tmp_file.flush().await?;
+		std::mem::drop(tmp_file);
+
+		tokio::fs::rename(&paths.tmp_path, &paths.path).await?;
+
+		Ok(())
 	}
 
 	pub fn load(dir: impl AsRef<Path>) -> Result<Vec<()>, io::Error> {
