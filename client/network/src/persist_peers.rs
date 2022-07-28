@@ -143,8 +143,6 @@ pub use peersets::load as peersets_load;
 
 impl PersistPeersets {
 	pub fn new(dir: impl AsRef<Path>, peerset_handle: PeersetHandle) -> Self {
-		eprintln!("!!! PersistPeersets::new");
-
 		let paths = Paths::new(dir, "peer-sets");
 		let busy_future = async move {
 			let mut ticks = tokio::time::interval(FLUSH_INTERVAL);
@@ -168,6 +166,12 @@ impl PersistPeersets {
 mod peersets {
 	use super::*;
 
+	#[derive(Debug, serde::Serialize, serde::Deserialize)]
+	pub struct PeerInfo {
+		pub peer_id: String,
+		pub reputation: i32,
+	}
+
 	pub(super) async fn persist(
 		paths: &Paths,
 		peerset_handle: &PeersetHandle,
@@ -177,9 +181,16 @@ mod peersets {
 		let peersets_dumped = peerset_handle
 			.dump_state()
 			.await
-			.map_err(|()| io::Error::new(io::ErrorKind::BrokenPipe, "oneshot channel failure"))?;
+			.map_err(|()| io::Error::new(io::ErrorKind::BrokenPipe, "oneshot channel failure"))?
+			.into_iter()
+			.map(|(peer_id, reputation)| PeerInfo { peer_id: peer_id.to_base58(), reputation })
+			.collect::<Vec<_>>();
 
-		let mut tmp_file = tokio::fs::OpenOptions::new().create(true).write(true).open(&paths.tmp_path).await?;
+		let mut tmp_file = tokio::fs::OpenOptions::new()
+			.create(true)
+			.write(true)
+			.open(&paths.tmp_path)
+			.await?;
 		let serialized = serde_json::to_vec_pretty(&peersets_dumped)?;
 		tmp_file.write_all(&serialized).await?;
 		tmp_file.flush().await?;
@@ -190,16 +201,24 @@ mod peersets {
 		Ok(())
 	}
 
-	pub fn load(dir: impl AsRef<Path>) -> Result<Vec<()>, io::Error> {
+	pub fn load(dir: impl AsRef<Path>) -> Result<Vec<(PeerId, i32)>, io::Error> {
 		let mut path = dir.as_ref().to_owned();
 		path.push("peer-sets.json");
 
-		eprintln!("loading peersets from {:?}", path);
-
 		match std::fs::OpenOptions::new().read(true).open(&path) {
 			Ok(f) => {
-				let peersets = serde_json::from_reader(f)?;
-				Ok(peersets)
+				let peersets: Vec<PeerInfo> = serde_json::from_reader(f)?;
+
+				Ok(peersets
+					.into_iter()
+					.filter_map(|peer_info| {
+						if let Ok(peer_id) = peer_info.peer_id.parse::<PeerId>() {
+							Some((peer_id, peer_info.reputation))
+						} else {
+							None
+						}
+					})
+					.collect())
 			},
 			Err(not_found) if not_found.kind() == io::ErrorKind::NotFound => Ok(vec![]),
 			Err(reason) => Err(reason),

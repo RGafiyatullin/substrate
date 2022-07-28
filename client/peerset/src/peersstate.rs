@@ -301,6 +301,10 @@ impl PeersState {
 			}
 		}
 	}
+
+	pub(crate) fn peer_reputations(&self) -> impl Iterator<Item = (&PeerId, i32)> {
+		self.nodes.iter().map(|(peer_id, peer_info)| (peer_id, peer_info.reputation))
+	}
 }
 
 /// Grants access to the state of a peer in the [`PeersState`] in the context of a specific set.

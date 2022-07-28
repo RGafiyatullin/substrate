@@ -604,11 +604,6 @@ impl Notifications {
 
 	/// Function that is called when the peerset wants us to connect to a peer.
 	fn peerset_report_connect(&mut self, peer_id: PeerId, set_id: sc_peerset::SetId) {
-		eprintln!(
-			"!!! Notifications::peerset_report_connect [peer_id: {:?}; set_id: {:?}]",
-			peer_id, set_id
-		);
-
 		// If `PeerId` is unknown to us, insert an entry, start dialing, and return early.
 		let handler = self.new_handler();
 		let mut occ_entry = match self.peers.entry((peer_id, set_id)) {
@@ -1063,10 +1058,6 @@ impl NetworkBehaviour for Notifications {
 	}
 
 	fn addresses_of_peer(&mut self, _peer_id: &PeerId) -> Vec<Multiaddr> {
-		eprintln!(
-			"<Notifications as NetworkBehaviour>::addresses_of_peer [peer_id: {:?}]",
-			_peer_id
-		);
 		Vec::new()
 	}
 
@@ -1078,9 +1069,6 @@ impl NetworkBehaviour for Notifications {
 		_failed_addresses: Option<&Vec<Multiaddr>>,
 		_other_established: usize,
 	) {
-		eprintln!("<Notifications as NetworkBehaviour>::inject_connection_established [peer_id: {:?}, conn: {:?}, endpoint: {:?}]",
-			peer_id, conn, endpoint);
-
 		for set_id in (0..self.notif_protocols.len()).map(sc_peerset::SetId::from) {
 			match self.peers.entry((*peer_id, set_id)).or_insert(PeerState::Poisoned) {
 				// Requested | PendingRequest => Enabled
@@ -1141,9 +1129,6 @@ impl NetworkBehaviour for Notifications {
 		_handler: <Self::ConnectionHandler as IntoConnectionHandler>::Handler,
 		_remaining_established: usize,
 	) {
-		eprintln!("<Notifications as NetworkBehaviour>::inject_connection_closed [peer_id: {:?}, conn: {:?}]",
-			peer_id, conn);
-
 		for set_id in (0..self.notif_protocols.len()).map(sc_peerset::SetId::from) {
 			let mut entry = if let Entry::Occupied(entry) = self.peers.entry((*peer_id, set_id)) {
 				entry

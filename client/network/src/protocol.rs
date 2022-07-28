@@ -309,16 +309,7 @@ where
 
 		let mut known_addresses = Vec::new();
 
-		let (peerset, peerset_handle) = {
-			if let Some(loaded_peersets) = network_config
-				.net_config_path
-				.as_ref()
-				.map(persist_peers::peersets_load)
-				.transpose()?
-			{
-				log::warn!("Restoring peersets: not implemented [{:?}]", loaded_peersets);
-			}
-
+		let (mut peerset, peerset_handle) = {
 			let mut sets =
 				Vec::with_capacity(NUM_HARDCODED_PEERSETS + network_config.extra_sets.len());
 
@@ -367,6 +358,25 @@ where
 
 			sc_peerset::Peerset::from_config(sc_peerset::PeersetConfig { sets })
 		};
+
+		if let Some(loaded_peerinfo) = network_config
+			.net_config_path
+			.as_ref()
+			.map(persist_peers::peersets_load)
+			.transpose()?
+		{
+			use sc_peerset::ReputationChange;
+
+			for (peer_id, reputation) in loaded_peerinfo {
+				peerset.report_peer(
+					peer_id,
+					ReputationChange {
+						value: reputation,
+						reason: "Restoring from previous node incrnatation",
+					},
+				);
+			}
+		}
 
 		let block_announces_protocol: Cow<'static, str> =
 			format!("/{}/block-announces/1", protocol_id.as_ref()).into();
@@ -1316,7 +1326,6 @@ where
 	}
 
 	fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-		eprintln!("<Protocol as NetworkBehaviour>::addresses_of_peer [peer_id: {:?}]", peer_id);
 		self.behaviour.addresses_of_peer(peer_id)
 	}
 
@@ -1328,9 +1337,6 @@ where
 		failed_addresses: Option<&Vec<Multiaddr>>,
 		other_established: usize,
 	) {
-		eprintln!("<Protocol as NetworkBehaviour>::inject_connection_established [peer_id: {:?}; conn_id: {:?}; endpoint: {:?}]", 
-			peer_id, conn, endpoint);
-
 		self.behaviour.inject_connection_established(
 			peer_id,
 			conn,
@@ -1348,9 +1354,6 @@ where
 		handler: <Self::ConnectionHandler as IntoConnectionHandler>::Handler,
 		remaining_established: usize,
 	) {
-		eprintln!("<Protocol as NetworkBehaviour>::inject_connection_closed [peer_id: {:?}, conn_id: {:?}; endpoint: {:?}; remaining_establishd: {:?}]", 
-			peer_id, conn, endpoint, remaining_established);
-
 		self.behaviour.inject_connection_closed(
 			peer_id,
 			conn,
@@ -1366,8 +1369,6 @@ where
 		connection: ConnectionId,
 		event: <<Self::ConnectionHandler as IntoConnectionHandler>::Handler as ConnectionHandler>::OutEvent,
 	) {
-		eprintln!("<Protocol as NetworkBehaviour>::inject_event [peer_id: {:?}; conn_id: {:?}; event: {:?}]", peer_id, connection, event);
-
 		self.behaviour.inject_event(peer_id, connection, event)
 	}
 

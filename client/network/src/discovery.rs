@@ -346,8 +346,6 @@ impl DiscoveryBehaviour {
 		supported_protocols: impl Iterator<Item = impl AsRef<[u8]>>,
 		addr: Multiaddr,
 	) {
-		eprintln!("DiscoveryBehaviour::add_self_reported_address: [peer-id: {:?}; addr: {:?}; can-add-to-dht: {:?}]", peer_id, addr, self.can_add_to_dht(&addr));
-
 		if let Some(persist_peer_addrs) = self.persist_peer_addrs.as_mut() {
 			persist_peer_addrs.report_peer_addr(peer_id, &addr);
 		}
@@ -598,14 +596,6 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 		old: &ConnectedPoint,
 		new: &ConnectedPoint,
 	) {
-		eprintln!(
-			"<DiscoveryBehaviour as NetworkBehaviour>::inject_address_change [peer-id: {:?}; conn-id: {:?}; old: {:?}; new: {:?}]",
-			peer_id,
-			connection_id,
-			old,
-			new,
-		);
-
 		for k in self.kademlias.values_mut() {
 			NetworkBehaviour::inject_address_change(k, peer_id, connection_id, old, new);
 		}
@@ -619,19 +609,6 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 		failed_addresses: Option<&Vec<Multiaddr>>,
 		other_established: usize,
 	) {
-		eprintln!(
-			"<DiscoveryBehaviour as NetworkBehaviour>::inject_connection_established [peer-id: {:?}; conn-id: {:?}; endpoint: {:?}]",
-			peer_id,
-			conn,
-			endpoint,
-		);
-		eprintln!("??? {:?}", self.kademlias.keys().collect::<Vec<_>>());
-		let addrs = self.addresses_of_peer(peer_id);
-		eprintln!("!!! {:?} has {:?} addrs:", peer_id, addrs.len());
-		for (idx, addr) in addrs.into_iter().enumerate() {
-			eprintln!("!!! - {:?}[{:?}] => {:?}", peer_id, idx, addr);
-		}
-
 		self.num_connections += 1;
 		for k in self.kademlias.values_mut() {
 			NetworkBehaviour::inject_connection_established(
@@ -653,13 +630,6 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 		handler: <Self::ConnectionHandler as IntoConnectionHandler>::Handler,
 		remaining_established: usize,
 	) {
-		eprintln!(
-			"<DiscoveryBehaviour as NetworkBehaviour>::inject_connection_closed [peer-id: {:?}; conn-id: {:?}; endpoint: {:?}]",
-			peer_id,
-			conn,
-			endpoint,
-		);
-
 		self.num_connections -= 1;
 		for (pid, event) in handler.into_iter() {
 			if let Some(kad) = self.kademlias.get_mut(&pid) {
@@ -702,10 +672,6 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 		connection: ConnectionId,
 		(pid, event): <<Self::ConnectionHandler as IntoConnectionHandler>::Handler as ConnectionHandler>::OutEvent,
 	) {
-		eprintln!(
-			"<DiscoveryBehaviour as NetworkBehaviour>::inject_event [peer-id: {:?}; conn-id: {:?}; pid: {:?}; event: {:?}]",
-			peer_id, connection, pid, event);
-
 		if let Some(kad) = self.kademlias.get_mut(&pid) {
 			return kad.inject_event(peer_id, connection, event)
 		}
@@ -717,11 +683,6 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 	}
 
 	fn inject_new_external_addr(&mut self, addr: &Multiaddr) {
-		eprintln!(
-			"<DiscoveryBehaviour as NetworkBehaviour>::inject_new_external_addr [addr: {:?}]",
-			addr,
-		);
-
 		let new_addr = addr.clone().with(Protocol::P2p(self.local_peer_id.into()));
 
 		if self.can_add_to_dht(addr) {

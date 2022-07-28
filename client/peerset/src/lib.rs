@@ -56,7 +56,7 @@ const DISCONNECT_REPUTATION_CHANGE: i32 = -256;
 /// the list.
 const FORGET_AFTER: Duration = Duration::from_secs(3600);
 
-pub type DumpedState = ();
+pub type DumpedState = Vec<(PeerId, i32)>;
 
 #[derive(Debug)]
 enum Action {
@@ -177,9 +177,7 @@ impl PeersetHandle {
 		let _ = self.tx.unbounded_send(Action::PeerReputation(peer_id, tx));
 
 		// The channel can only be closed if the peerset no longer exists.
-		async move {
-			rx.await.map_err(|_| ())
-		}
+		async move { rx.await.map_err(|_| ()) }
 	}
 
 	pub fn dump_state(&self) -> impl Future<Output = Result<DumpedState, ()>> {
@@ -187,9 +185,7 @@ impl PeersetHandle {
 
 		let _ = self.tx.unbounded_send(Action::DumpState(tx));
 
-		async move {
-			rx.await.map_err(|_| ())
-		}
+		async move { rx.await.map_err(|_| ()) }
 	}
 }
 
@@ -485,7 +481,12 @@ impl Peerset {
 	}
 
 	fn on_dump_state(&self, reply_to: oneshot::Sender<DumpedState>) {
-		let _ = reply_to.send(());
+		let _ = reply_to.send(
+			self.data
+				.peer_reputations()
+				.map(|(peer_id, rep)| (peer_id.to_owned(), rep))
+				.collect(),
+		);
 	}
 
 	/// Updates the value of `self.latest_time_update` and performs all the updates that happen
@@ -777,8 +778,7 @@ impl Stream for Peerset {
 					self.on_remove_from_peers_set(sets_name, peer_id),
 				Action::PeerReputation(peer_id, pending_response) =>
 					self.on_peer_reputation(peer_id, pending_response),
-				Action::DumpState(reply_to) =>
-					self.on_dump_state(reply_to),
+				Action::DumpState(reply_to) => self.on_dump_state(reply_to),
 			}
 		}
 	}

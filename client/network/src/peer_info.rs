@@ -180,11 +180,6 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 	}
 
 	fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<Multiaddr> {
-		eprintln!(
-			"<PeerInfoBehaviour as NetworkBehaviour>::addresses_of_peer [peer_id: {:?}]",
-			peer_id
-		);
-
 		let mut list = self.ping.addresses_of_peer(peer_id);
 		list.extend_from_slice(&self.identify.addresses_of_peer(peer_id));
 		list
@@ -197,8 +192,6 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 		old: &ConnectedPoint,
 		new: &ConnectedPoint,
 	) {
-		eprintln!("<PeerInfoBehaviour as NetworkBehaviour>::inject_address_change [peer_id: {:?}, conn: {:?}, old: {:?}, new: {:?}]", peer_id, conn, old, new);
-
 		self.ping.inject_address_change(peer_id, conn, old, new);
 		self.identify.inject_address_change(peer_id, conn, old, new);
 
@@ -223,8 +216,6 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 		failed_addresses: Option<&Vec<Multiaddr>>,
 		other_established: usize,
 	) {
-		eprintln!("<PeerInfoBehaviour as NetworkBehaviour>::inject_connection_established [peer_id: {:?}, conn: {:?}, endpoint: {:?}, failed_addresses: {:?}, other_established: {:?}]", peer_id, conn, endpoint, failed_addresses, other_established);
-
 		self.ping.inject_connection_established(
 			peer_id,
 			conn,
@@ -263,8 +254,6 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 		handler: <Self::ConnectionHandler as IntoConnectionHandler>::Handler,
 		remaining_established: usize,
 	) {
-		eprintln!("<PeerInfoBehaviour as NetworkBehaviour>::inject_connection_closed [peer_id: {:?}, conn: {:?}, endpoint: {:?}, remaining_established: {:?}]", peer_id, conn, endpoint, remaining_established);
-
 		let (ping_handler, identity_handler) = handler.into_inner();
 		self.identify.inject_connection_closed(
 			peer_id,
@@ -298,7 +287,6 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 		connection: ConnectionId,
 		event: <<Self::ConnectionHandler as IntoConnectionHandler>::Handler as ConnectionHandler>::OutEvent,
 	) {
-		eprintln!("<PeerInfoBehaviour as NetworkBehaviour>::inject_event [peer_id: {:?}, connection: {:?}, event: {:?}]", peer_id, connection, event);
 		match event {
 			EitherOutput::First(event) => self.ping.inject_event(peer_id, connection, event),
 			EitherOutput::Second(event) => self.identify.inject_event(peer_id, connection, event),
