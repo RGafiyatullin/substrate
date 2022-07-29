@@ -170,6 +170,7 @@ mod peersets {
 	pub struct PeerInfo {
 		pub peer_id: String,
 		pub reputation: i32,
+		pub sets: Vec<usize>,
 	}
 
 	pub(super) async fn persist(
@@ -183,7 +184,11 @@ mod peersets {
 			.await
 			.map_err(|()| io::Error::new(io::ErrorKind::BrokenPipe, "oneshot channel failure"))?
 			.into_iter()
-			.map(|(peer_id, reputation)| PeerInfo { peer_id: peer_id.to_base58(), reputation })
+			.map(|(peer_id, reputation, sets)| PeerInfo {
+				peer_id: peer_id.to_base58(),
+				reputation,
+				sets,
+			})
 			.collect::<Vec<_>>();
 
 		let mut tmp_file = tokio::fs::OpenOptions::new()
@@ -201,7 +206,7 @@ mod peersets {
 		Ok(())
 	}
 
-	pub fn load(dir: impl AsRef<Path>) -> Result<Vec<(PeerId, i32)>, io::Error> {
+	pub fn load(dir: impl AsRef<Path>) -> Result<Vec<(PeerId, i32, Vec<usize>)>, io::Error> {
 		let mut path = dir.as_ref().to_owned();
 		path.push("peer-sets.json");
 
@@ -213,7 +218,7 @@ mod peersets {
 					.into_iter()
 					.filter_map(|peer_info| {
 						if let Ok(peer_id) = peer_info.peer_id.parse::<PeerId>() {
-							Some((peer_id, peer_info.reputation))
+							Some((peer_id, peer_info.reputation, peer_info.sets))
 						} else {
 							None
 						}
@@ -231,28 +236,6 @@ mod peersets {
 		}
 	}
 }
-
-// #[derive(Debug)]
-// struct FlushValve {
-// 	min_flush_interval: Duration,
-// 	last_flush: std::time::Instant,
-// 	has_changes: bool,
-// }
-
-// impl FlushValve {
-// 	pub fn new(min_flush_interval: Duration) -> Self {
-// 		Self { min_flush_interval, last_flush: Instant::now(), has_changes: false }
-// 	}
-// 	pub fn report_change(&mut self) {
-// 		self.has_changes = true;
-// 	}
-// 	pub fn should_flush(&self) -> bool {
-// 		self.has_changes && self.last_flush.elapsed() > self.min_flush_interval
-// 	}
-// 	pub fn report_flushed(&mut self) {
-// 		self.last_flush = Instant::now();
-// 	}
-// }
 
 #[derive(Debug)]
 struct Paths {

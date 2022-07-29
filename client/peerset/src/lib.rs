@@ -56,7 +56,7 @@ const DISCONNECT_REPUTATION_CHANGE: i32 = -256;
 /// the list.
 const FORGET_AFTER: Duration = Duration::from_secs(3600);
 
-pub type DumpedState = Vec<(PeerId, i32)>;
+pub type DumpedState = Vec<(PeerId, i32, Vec<usize>)>;
 
 #[derive(Debug)]
 enum Action {
@@ -484,7 +484,7 @@ impl Peerset {
 		let _ = reply_to.send(
 			self.data
 				.peer_reputations()
-				.map(|(peer_id, rep)| (peer_id.to_owned(), rep))
+				.map(|(peer_id, rep, sets)| (peer_id.to_owned(), rep, sets))
 				.collect(),
 		);
 	}

@@ -302,8 +302,17 @@ impl PeersState {
 		}
 	}
 
-	pub(crate) fn peer_reputations(&self) -> impl Iterator<Item = (&PeerId, i32)> {
-		self.nodes.iter().map(|(peer_id, peer_info)| (peer_id, peer_info.reputation))
+	pub(crate) fn peer_reputations(&self) -> impl Iterator<Item = (&PeerId, i32, Vec<usize>)> {
+		self.nodes.iter().map(|(peer_id, peer_info)| {
+			let sets = peer_info
+				.sets
+				.iter()
+				.enumerate()
+				.filter(|(_, s)| s.is_connected())
+				.map(|(i, _)| i)
+				.collect();
+			(peer_id, peer_info.reputation, sets)
+		})
 	}
 }
 
