@@ -349,13 +349,13 @@ impl DiscoveryBehaviour {
 		supported_protocols: impl Iterator<Item = impl AsRef<[u8]>>,
 		addr: Multiaddr,
 	) {
-		if let Some(persist_peer_addrs) = self.persist_peer_addrs.as_mut() {
-			persist_peer_addrs.report_peer_addr(peer_id, &addr);
-		}
-
-		if !self.can_add_to_dht(&addr) {
+		if !self.allow_non_globals_in_dht && !self.can_add_to_dht(&addr) {
 			trace!(target: "sub-libp2p", "Ignoring self-reported non-global address {} from {}.", addr, peer_id);
 			return
+		}
+
+		if let Some(persist_peer_addrs) = self.persist_peer_addrs.as_mut() {
+			persist_peer_addrs.report_peer_addr(peer_id, &addr);
 		}
 
 		let mut added = false;
@@ -456,7 +456,7 @@ impl DiscoveryBehaviour {
 				return true,
 			_ => return false,
 		};
-		ip.is_global() || self.allow_non_globals_in_dht
+		ip.is_global()
 	}
 
 	fn new_handler_with_replacement(
