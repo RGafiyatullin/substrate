@@ -17,14 +17,14 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	fmt,
 	future::Future,
 	io,
 	path::{Path, PathBuf},
 	pin::Pin,
 	task::{Context, Poll},
-	time::{Duration, Instant},
+	time::{Duration, Instant, SystemTime},
 };
 
 use futures::{channel::oneshot, FutureExt};
@@ -37,9 +37,11 @@ use crate::{utils, Multiaddr, PeerId};
 type BoxedFuture<T> = Pin<Box<dyn Future<Output = T> + Send + 'static>>;
 type Never = std::convert::Infallible;
 type ProtocolType = String;
+type AddrRelevance = SystemTime;
 
 const FLUSH_INTERVAL: Duration = Duration::from_secs(5);
 const PEER_ADDRS_CACHE_SIZE: usize = 100;
+const PEER_ADDR_CACHE_MAX_AGE_DIFFERENCE: Duration = Duration::from_secs(10);
 
 const PEER_ADDRS_FILENAME: &str = "peer-addrs.json";
 const PEER_SETS_FILENAME: &str = "peer-sets.json";
@@ -47,7 +49,7 @@ const PEER_SETS_FILENAME: &str = "peer-sets.json";
 pub struct PersistPeerAddrs {
 	storage_dir: PathBuf,
 	flushed_at: Instant,
-	protocols: HashMap<ProtocolType, LruCache<PeerId, HashSet<Multiaddr>>>,
+	protocols: HashMap<ProtocolType, LruCache<PeerId, HashMap<Multiaddr, AddrRelevance>>>,
 	busy: Option<BoxedFuture<Result<(), io::Error>>>,
 }
 
@@ -72,7 +74,7 @@ impl PersistPeerAddrs {
 					LruCache::new(PEER_ADDRS_CACHE_SIZE),
 					|mut acc, AddrsEntry { peer_id, addrs }| {
 						if let Ok(peer_id) = peer_id.parse() {
-							acc.push(peer_id, addrs.into_iter().collect::<HashSet<_>>());
+							acc.push(peer_id, addrs.into_iter().collect::<HashMap<_, _>>());
 						}
 						acc
 					},
@@ -95,14 +97,19 @@ impl PersistPeerAddrs {
 					and `<ProtocolId as AsRef<str>>` it's a correct UTF-8 string",
 		);
 
+		let addr_relevance = SystemTime::now();
+
 		let entries = self
 			.protocols
 			.entry(protocol)
 			.or_insert_with(|| LruCache::new(PEER_ADDRS_CACHE_SIZE));
 		if let Some(peer_addrs) = entries.get_mut(peer_id) {
-			peer_addrs.insert(addr.to_owned());
+			peer_addrs.insert(addr.to_owned(), addr_relevance);
 		} else {
-			entries.push(peer_id.to_owned(), [addr.to_owned()].into_iter().collect());
+			entries.push(
+				peer_id.to_owned(),
+				[(addr.to_owned(), addr_relevance)].into_iter().collect(),
+			);
 		}
 	}
 
@@ -123,7 +130,7 @@ impl PersistPeerAddrs {
 				}
 			})
 			.flat_map(|entries| entries.get(peer_id).into_iter())
-			.flat_map(IntoIterator::into_iter)
+			.flat_map(HashMap::keys)
 	}
 
 	pub fn poll(&mut self, cx: &mut Context) -> Poll<Never> {
@@ -145,7 +152,22 @@ impl PersistPeerAddrs {
 						.iter()
 						.map(|(peer_id, addrs)| {
 							let peer_id = peer_id.to_base58();
-							let addrs = addrs.into_iter().cloned().collect();
+
+							let addrs = if let Some(most_fresh) = addrs.values().copied().max() {
+								addrs
+									.into_iter()
+									.filter(|&(_, &at)| {
+										most_fresh
+											.duration_since(at)
+											.map(|diff| diff < PEER_ADDR_CACHE_MAX_AGE_DIFFERENCE)
+											.ok()
+											.unwrap_or(false)
+									})
+									.map(|(addr, at)| (addr.to_owned(), *at))
+									.collect()
+							} else {
+								Default::default()
+							};
 
 							AddrsEntry { peer_id, addrs }
 						})
@@ -187,7 +209,7 @@ impl PersistPeersets {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct AddrsEntry {
 	pub peer_id: String,
-	pub addrs: Vec<Multiaddr>,
+	pub addrs: HashMap<Multiaddr, AddrRelevance>,
 }
 
 async fn peer_addrs_save(

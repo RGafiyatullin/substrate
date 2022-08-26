@@ -237,12 +237,12 @@ async fn do_not_keep_stale_addrs() {
 
 mod persistence {
 	use sc_network::Multiaddr;
-	use std::{collections::HashMap, path::Path};
+	use std::{collections::HashMap, path::Path, time::SystemTime};
 
 	#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 	pub struct AddrsEntry {
 		pub peer_id: String,
-		pub addrs: Vec<Multiaddr>,
+		pub addrs: HashMap<Multiaddr, SystemTime>,
 	}
 
 	pub fn load_addrs(p: impl AsRef<Path>) -> HashMap<String, Vec<AddrsEntry>> {
